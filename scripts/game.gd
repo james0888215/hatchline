@@ -161,6 +161,29 @@ func board_buddy_labels() -> Dictionary:
 	return labels
 
 
+func board_buddy_pairs() -> Array:
+	var pairs: Array = []
+	if run == null:
+		return pairs
+	var w := econ("BOARD_W")
+	var h := econ("BOARD_H")
+	for i in run.board.size():
+		var a = run.board[i]
+		if a == null:
+			continue
+		var x: int = int(i) % w
+		var y: int = int(i) / w
+		if x + 1 < w:
+			var right = run.board[i + 1]
+			if right != null and str(right.family) == str(a.family):
+				pairs.append({"a": i, "b": i + 1, "family": str(a.family)})
+		if y + 1 < h and i + w < run.board.size():
+			var below = run.board[i + w]
+			if below != null and str(below.family) == str(a.family):
+				pairs.append({"a": i, "b": i + w, "family": str(a.family)})
+	return pairs
+
+
 func encounter_blurb(enc_id: String) -> String:
 	var enc: Dictionary = encounters[enc_id]
 	var counts := {}

@@ -2,6 +2,7 @@ extends Control
 
 const SLOT := preload("res://scripts/slot.gd")
 const TOKENS := preload("res://scripts/token.gd")
+const LINKS := preload("res://scripts/buddy_overlay.gd")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -10,6 +11,8 @@ const GOLD := Color("c8922a")
 const GOOD := Color("2f7d4a")
 const BAD := Color("a33b32")
 const SLOT_EMPTY := Color("efeae0")
+const HIT := Color("c4453a")
+const HEAL := Color("2a8a4a")
 
 var host: Control
 var tick: Timer
@@ -17,14 +20,23 @@ var flash_timer: Timer
 var _rebuild_queued := false
 var dex_open := false
 var _ending := false
+var log_open := false
+var punch_uid := -1
 
 var ally_grid: GridContainer
 var enemy_grid: GridContainer
+var ally_links
+var enemy_links
+var ally_floats: Control
+var enemy_floats: Control
 var log_label: Label
+var log_button: Button
 var banner_panel: Panel
 var banner_label: Label
 var round_label: Label
 var speed_button: Button
+var punch_box: Panel
+var punch_label: Label
 
 
 func _ready() -> void:
@@ -115,6 +127,7 @@ func _rebuild() -> void:
 			_build_start(page)
 	if Game.run != null and not Game.run.merge_flash.is_empty():
 		flash_timer.start(1.8)
+		_hold_attention()
 	else:
 		flash_timer.stop()
 	if Game.phase == "combat" and Game.combat != null and not Game.combat.over:
@@ -130,11 +143,18 @@ func _clear_host() -> void:
 		c.free()
 	ally_grid = null
 	enemy_grid = null
+	ally_links = null
+	enemy_links = null
+	ally_floats = null
+	enemy_floats = null
 	log_label = null
+	log_button = null
 	banner_panel = null
 	banner_label = null
 	round_label = null
 	speed_button = null
+	punch_box = null
+	punch_label = null
 
 
 func _clear_flash() -> void:
@@ -149,7 +169,7 @@ func _clear_flash() -> void:
 
 func _build_start(page: VBoxContainer) -> void:
 	page.add_child(_lbl("HATCHLINE", 40, INK))
-	page.add_child(_lbl("Meadow Circuit  ·  greybox", 18, MUTED))
+	page.add_child(_lbl("Meadow Circuit", 18, MUTED))
 	page.add_child(_lbl("Three of a kind evolve. Same-family neighbours share a bonus.", 16, INK))
 	var dex_n: int = Game.profile.discovered.size()
 	var dex_line := "Hatch-dex %d/%d    ·    runs %d" % [dex_n, Game.critter_order.size(), int(Game.profile.runs)]
@@ -165,7 +185,7 @@ func _build_start(page: VBoxContainer) -> void:
 		page.add_child(back)
 	else:
 		var row := HBoxContainer.new()
-		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_theme_constant_override("separation", 12)
 		page.add_child(row)
@@ -185,21 +205,42 @@ func _starter_card(id: String) -> Button:
 	var c: Dictionary = Game.critters[id]
 	var b := Button.new()
 	b.name = "Starter_%s" % id
-	b.custom_minimum_size = Vector2(280, 168)
-	var tag := ""
-	if str(c.line) in Game.profile.new_lines:
-		tag = "NEW\n"
-	b.text = "%s%s\n%s · T%d\n%s\n%s" % [tag, c.name, str(c.family).capitalize(), int(c.tier), Game.stat_line(c), c.blurb]
-	b.add_theme_font_size_override("font_size", 15)
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	var tex := TOKENS.texture(str(c.family), int(c.tier))
-	if tex != null:
-		b.icon = tex
-		b.expand_icon = true
-		b.add_theme_constant_override("icon_max_width", 84)
+	b.custom_minimum_size = Vector2(220, 292)
+	var is_new: bool = str(c.line) in Game.profile.new_lines
+	b.text = ("NEW\n" if is_new else "") + str(c.name)
+	b.add_theme_font_size_override("font_size", 1)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(state, Color(0, 0, 0, 0))
 	b.add_theme_stylebox_override("normal", _style(Color("fffdf8"), INK, 3))
 	b.add_theme_stylebox_override("hover", _style(Color("fff6e4"), INK, 3))
 	b.add_theme_stylebox_override("pressed", _style(Color("f3e6cc"), INK, 3))
+	b.add_theme_stylebox_override("focus", _style(Color("fffdf8"), INK, 3))
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 2)
+	var hold := CenterContainer.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var token := TOKENS.make(str(c.family), int(c.tier), 128.0)
+	token.name = "Capsule"
+	hold.add_child(token)
+	col.add_child(hold)
+	if is_new:
+		var chip_row := CenterContainer.new()
+		chip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip_row.add_child(_chip("NEW", Color("f6d56b")))
+		col.add_child(chip_row)
+	var name := _lbl(str(c.name), 20, INK)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(name)
+	var sub := _lbl("%s  ·  T%d" % [str(c.family).capitalize(), int(c.tier)], 13, MUTED)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(sub)
+	var stats := _lbl("%d HP    %d ATK" % [int(c.hp), int(c.atk)], 12, MUTED)
+	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(stats)
+	b.add_child(col)
 	b.pressed.connect(Game.choose_starter.bind(id))
 	return b
 
@@ -236,6 +277,11 @@ func _build_prep(page: VBoxContainer) -> void:
 		page.add_child(flash)
 	if str(Game.run.toast) != "":
 		page.add_child(_lbl(str(Game.run.toast), 15, GOOD))
+	var teach := _teach_line()
+	if teach != "":
+		var teach_lbl := _lbl(teach, 14, MUTED)
+		teach_lbl.name = "TeachLine"
+		page.add_child(teach_lbl)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 12)
@@ -287,43 +333,53 @@ func _build_choice(page: VBoxContainer) -> void:
 
 
 func _build_combat(page: VBoxContainer) -> void:
+	log_open = false
+	punch_uid = -1
 	page.add_child(_run_header())
-	var enc_id := str(Game.current_node().encounter)
-	var enc: Dictionary = Game.encounters[enc_id]
-	var combat_trait := _lbl(str(enc.trait), 16, INK)
-	combat_trait.name = "TraitLabel"
-	page.add_child(combat_trait)
 	banner_panel = Panel.new()
-	banner_panel.custom_minimum_size = Vector2(0, 42)
+	banner_panel.custom_minimum_size = Vector2(0, 36)
 	banner_panel.add_theme_stylebox_override("panel", _style(Color("f6d56b"), INK, 2))
-	banner_label = _lbl("", 20, INK)
+	banner_label = _lbl("", 18, INK)
 	banner_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	banner_panel.add_child(banner_label)
 	page.add_child(banner_panel)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 12)
+	body.add_theme_constant_override("separation", 10)
 	page.add_child(body)
-	ally_grid = _combat_grid()
-	enemy_grid = _combat_grid()
-	body.add_child(ally_grid)
+	var ally_stage := _grid_stage(Game.econ("BOARD_W"), [], true)
+	var enemy_stage := _grid_stage(Game.econ("BOARD_W"), [], true)
+	ally_grid = ally_stage.grid
+	enemy_grid = enemy_stage.grid
+	ally_links = ally_stage.links
+	enemy_links = enemy_stage.links
+	ally_floats = ally_stage.floats
+	enemy_floats = enemy_stage.floats
+	body.add_child(_combat_frame("YOUR MEADOW", ally_stage.stage))
 	var mid := VBoxContainer.new()
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mid.custom_minimum_size = Vector2(280, 0)
+	mid.custom_minimum_size = Vector2(196, 0)
+	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
+	mid.add_theme_constant_override("separation", 10)
 	body.add_child(mid)
-	round_label = _lbl("Round 0", 16, INK)
-	round_label.name = "RoundLabel"
-	mid.add_child(round_label)
-	speed_button = _btn("Speed ×%d" % Game.speed, Vector2(140, 40))
+	mid.add_child(_round_badge())
+	speed_button = _btn("SPEED  ▶  ×%d" % Game.speed, Vector2(188, 46))
 	speed_button.name = "SpeedButton"
+	speed_button.add_theme_font_size_override("font_size", 18)
+	speed_button.clip_text = false
 	speed_button.pressed.connect(_toggle_speed)
 	mid.add_child(speed_button)
-	log_label = _lbl("", 14, INK)
-	log_label.name = "CombatLog"
-	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mid.add_child(log_label)
-	body.add_child(enemy_grid)
+	punch_box = Panel.new()
+	punch_box.name = "PunchIn"
+	punch_box.visible = false
+	punch_box.custom_minimum_size = Vector2(148, 0)
+	punch_box.add_theme_stylebox_override("panel", _style(Color("fffdf8"), INK, 2))
+	punch_label = _lbl("", 13, INK)
+	punch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	punch_box.add_child(punch_label)
+	mid.add_child(punch_box)
+	body.add_child(_combat_frame("ENEMY CRITTERS", enemy_stage.stage))
+	page.add_child(_log_bar())
 	_sync_combat()
 
 
@@ -354,19 +410,7 @@ func _build_result(page: VBoxContainer) -> void:
 		dex_lbl.name = "DexTick"
 		page.add_child(dex_lbl)
 	if str(result.get("unlock", "")) != "":
-		var card := Panel.new()
-		card.name = "UnlockCard"
-		card.custom_minimum_size = Vector2(0, 72)
-		card.add_theme_stylebox_override("panel", _style(Color("fffdf8"), INK, 3))
-		var row := HBoxContainer.new()
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_theme_constant_override("separation", 10)
-		row.add_child(TOKENS.make("leaf", 1, 48.0))
-		var inner := _lbl(str(result.unlock), 18, INK)
-		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(inner)
-		card.add_child(row)
-		page.add_child(card)
+		page.add_child(_unlock_card(str(result.unlock)))
 	var again := _btn("Again" if won else "Retry", Vector2(280, 64))
 	again.name = "RetryButton"
 	again.add_theme_font_size_override("font_size", 22)
@@ -375,25 +419,112 @@ func _build_result(page: VBoxContainer) -> void:
 	page.add_child(_tease_row())
 
 
+func _unlock_card(copy: String) -> Panel:
+	var card := Panel.new()
+	card.name = "UnlockCard"
+	card.custom_minimum_size = Vector2(0, 210)
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	card.add_theme_stylebox_override("panel", _style(Color("fffdf8"), INK, 3))
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 2)
+	var found := _unlock_critter()
+	var family := str(found.get("family", "leaf"))
+	var tier := int(found.get("tier", 1))
+	var hold := CenterContainer.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var token := TOKENS.make(family, tier, 132.0)
+	token.name = "Capsule"
+	hold.add_child(token)
+	col.add_child(hold)
+	var chip_row := CenterContainer.new()
+	chip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip_row.add_child(_chip("NEW", Color("f6d56b")))
+	col.add_child(chip_row)
+	var name := _lbl(str(found.get("name", "New egg")), 26, INK)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(name)
+	var line := _lbl(copy, 15, MUTED)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(line)
+	card.add_child(col)
+	return card
+
+
+func _unlock_critter() -> Dictionary:
+	var want := str(Game.circuit.meta.get("unlock_name", ""))
+	for id in Game.critter_order:
+		var c: Dictionary = Game.critters[id]
+		if str(c.name) == want:
+			return c
+	return {}
+
+
 func _run_header() -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := _lbl("HATCHLINE", 20, INK)
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_theme_constant_override("separation", 10)
+	var title := _lbl("HATCHLINE", 26, INK)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	top.add_child(title)
+	top.add_child(_path_pill())
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(gap)
-	var node := Game.current_node()
-	top.add_child(_lbl(str(node.title), 18, INK))
-	top.add_child(_lbl("   coins %d" % int(Game.run.coins), 18, GOLD))
-	top.add_child(_lbl("   interest +%d" % Game.interest_for(int(Game.run.coins)), 14, MUTED))
-	top.add_child(_lbl("   seed %s" % str(Game.run.seed), 12, MUTED))
+	top.add_child(_coin_pill(str(int(Game.run.coins))))
+	top.add_child(_lbl("+", 20, INK))
+	top.add_child(_coin_pill("+%d" % Game.interest_for(int(Game.run.coins))))
 	box.add_child(top)
 	box.add_child(_ribbon())
 	return box
+
+
+func _path_pill() -> Panel:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(260, 52)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_theme_stylebox_override("panel", _style(Color("f3ecdf"), INK, 2))
+	var inner := VBoxContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", 0)
+	var circuit := _lbl("MEADOW CIRCUIT", 11, MUTED)
+	circuit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var node := _lbl(str(Game.current_node().title).to_upper(), 16, INK)
+	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(circuit)
+	inner.add_child(node)
+	p.add_child(inner)
+	return p
+
+
+func _coin_pill(amount: String) -> Panel:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(108, 44)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := _style(Color("fffdf8"), INK, 2)
+	s.set_content_margin_all(4)
+	p.add_theme_stylebox_override("panel", s)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+	var mark := _lbl("◎", 18, INK)
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(mark)
+	var lab := _lbl(amount, 20, INK)
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(lab)
+	p.add_child(row)
+	return p
 
 
 func _ribbon() -> HBoxContainer:
@@ -454,7 +585,7 @@ func _bench_column() -> VBoxContainer:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_lbl("Bench", 16, INK))
 	for i in Game.run.bench.size():
-		var slot := _make_slot("bench", i, Game.run.bench[i], 236, 78, true)
+		var slot := _make_slot("bench", i, Game.run.bench[i], 236, 78)
 		slot.name = "Bench%d" % i
 		col.add_child(slot)
 	return col
@@ -465,28 +596,23 @@ func _board_column() -> VBoxContainer:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_lbl("Board  %d/%d" % [Game.board_count(), Game.econ("BOARD_SOFT_CAP")], 16, INK))
-	var grid := GridContainer.new()
-	grid.columns = Game.econ("BOARD_W")
+	var buddies := Game.board_buddy_labels()
+	var adj := _adjacency(Game.run.board)
+	var built := _grid_stage(Game.econ("BOARD_W"), adj.pairs, false)
+	var grid: GridContainer = built.grid
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var buddies := Game.board_buddy_labels()
+	var glow: Dictionary = adj.glow
 	for i in Game.run.board.size():
-		var slot := _make_slot("board", i, Game.run.board[i], 168, 132, true)
+		var slot := _make_slot("board", i, Game.run.board[i], 168, 136, glow.get(i, Color(0, 0, 0, 0)))
 		slot.name = "Board%d" % i
 		if Game.run.board[i] != null and str(buddies.get(i, "")) != "":
-			var tag := _lbl(str(buddies[i]), 13, INK)
+			var tag := _lbl(str(buddies[i]), 13, _family_color(str(Game.run.board[i].family)))
 			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			slot.get_node("Margin/SlotBody").add_child(tag)
 		grid.add_child(slot)
-	col.add_child(grid)
-	var legend := "Orthogonal buddies — Leaf +%d armour, Ember +%d damage, Puff +%d regen, per neighbour." % [
-		Game.econ("LEAF_BUDDY_ARMOR"), Game.econ("EMBER_BUDDY_DAMAGE"), Game.econ("PUFF_BUDDY_REGEN")
-	]
-	var leg := _lbl(legend, 13, MUTED)
-	leg.name = "BuddyLegend"
-	leg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(leg)
+	built.stage.custom_minimum_size = grid.get_combined_minimum_size()
+	col.add_child(built.stage)
 	return col
 
 
@@ -497,7 +623,6 @@ func _right_column() -> VBoxContainer:
 	var node := Game.current_node()
 	if str(node.type) == "shop":
 		col.add_child(_lbl(str(node.title), 16, INK))
-		col.add_child(_lbl("Freeze keeps a card. Pairs sit at 2/3 until the third evolves.", 12, MUTED))
 		for i in Game.run.shop.size():
 			col.add_child(_shop_card(i))
 		var cost := Game.reroll_cost()
@@ -505,7 +630,6 @@ func _right_column() -> VBoxContainer:
 		reroll.name = "RerollButton"
 		reroll.pressed.connect(Game.reroll)
 		col.add_child(reroll)
-		col.add_child(_lbl("1 coin per %d saved · cap %d" % [Game.econ("INTEREST_PER"), Game.econ("INTEREST_CAP")], 12, MUTED))
 	else:
 		var enc_id := str(node.get("encounter", ""))
 		col.add_child(_lbl("Coming up", 14, MUTED))
@@ -611,7 +735,7 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 
 
 func _sell_zone() -> Control:
-	var slot := _make_slot("sell", -1, null, 420, 64, false)
+	var slot := _make_slot("sell", -1, null, 420, 64)
 	slot.name = "SellZone"
 	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var lab := _lbl("Drag a critter here to sell    ·    T1 returns %d    T2 returns %d    T3 returns %d" % [
@@ -622,7 +746,7 @@ func _sell_zone() -> Control:
 	return slot
 
 
-func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: bool) -> Panel:
+func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color = Color(0, 0, 0, 0)) -> Panel:
 	var slot := Panel.new()
 	slot.set_script(SLOT)
 	slot.set("zone", zone)
@@ -639,8 +763,16 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: b
 		width = 2
 	elif unit != null:
 		var flash := Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1))
-		border = GOLD if flash else INK
-		width = 4 if flash else 2
+		if flash:
+			border = GOLD
+			width = 4
+		elif glow.a > 0.0:
+			border = glow
+			width = 4
+			bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
+		else:
+			border = INK
+			width = 2
 		slot.set("preview_family", str(unit.family))
 		slot.set("preview_tier", int(unit.tier))
 	slot.add_theme_stylebox_override("panel", _style(bg, border, width))
@@ -660,8 +792,13 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: b
 	margin.add_child(body)
 	if unit == null:
 		return slot
-	var wide := w > h + 40.0
+	var wide: bool = w > h + 40.0
+	var flashing: bool = Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1))
 	var token := TOKENS.make(str(unit.family), int(unit.tier), 52.0 if wide else 46.0)
+	var pop := _pop_wrap(token)
+	if flashing:
+		_play_merge_pop(pop)
+		_pulse_slot(slot)
 	var name := _lbl("%s  T%d" % [unit.name, int(unit.tier)], 14, INK)
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var meta := _lbl("%d HP   %d ATK   %d ARM" % [int(unit.max_hp), int(unit.atk), int(unit.armor)], 13, INK)
@@ -674,38 +811,159 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: b
 	texts.add_child(meta)
 	var badge := Game.pair_badge(str(unit.def_id))
 	if badge != "":
-		var b := _lbl(badge + "  waiting", 13, BAD)
-		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		texts.add_child(b)
-	if show_sell:
-		var sell := _btn("Sell %d" % Game.sell_value(int(unit.tier)), Vector2(78, 24))
-		sell.add_theme_font_size_override("font_size", 13)
-		sell.pressed.connect(Game.sell_uid.bind(int(unit.uid)))
-		texts.add_child(sell)
+		var pip_row := HBoxContainer.new()
+		pip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pip_row.add_child(_chip(badge, Color("f6d56b")))
+		texts.add_child(pip_row)
 	if wide:
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 6)
-		row.add_child(token)
+		row.add_child(pop)
 		row.add_child(texts)
 		body.add_child(row)
 	else:
 		var holder := CenterContainer.new()
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		holder.add_child(token)
+		holder.add_child(pop)
 		body.add_child(holder)
 		body.add_child(texts)
 	return slot
 
 
-func _combat_grid() -> GridContainer:
+func _combat_frame(title: String, stage: Control) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 0)
+	var tab_row := CenterContainer.new()
+	tab_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tab := Panel.new()
+	tab.custom_minimum_size = Vector2(220, 32)
+	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab.add_theme_stylebox_override("panel", _style(Color("f7f1e6"), INK, 2))
+	var tab_label := _lbl(title, 14, INK)
+	tab_label.name = "BoardTitle"
+	tab_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tab_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tab_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tab.add_child(tab_label)
+	tab_row.add_child(tab)
+	col.add_child(tab_row)
+	var frame := Panel.new()
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame_style := _style(Color("f6f1e7"), INK, 3)
+	frame_style.set_content_margin_all(8)
+	frame.add_theme_stylebox_override("panel", frame_style)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(stage)
+	frame.add_child(margin)
+	col.add_child(frame)
+	return col
+
+
+func _round_badge() -> Panel:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(104, 104)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := _style(Color("efe6d4"), INK, 2)
+	s.set_corner_radius_all(52)
+	s.set_content_margin_all(6)
+	p.add_theme_stylebox_override("panel", s)
+	round_label = _lbl("ROUND\n0", 16, INK)
+	round_label.name = "RoundLabel"
+	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	round_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	p.add_child(round_label)
+	return p
+
+
+func _log_bar() -> PanelContainer:
+	var p := PanelContainer.new()
+	p.name = "CombatLogPanel"
+	p.size_flags_vertical = Control.SIZE_SHRINK_END
+	p.custom_minimum_size = Vector2(0, 52)
+	var s := _style(Color("f3ecdf"), INK, 2)
+	s.set_content_margin_all(8)
+	p.add_theme_stylebox_override("panel", s)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 4)
+	var head := HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := _lbl("COMBAT LOG", 14, INK)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(title)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(gap)
+	log_button = _btn("VIEW FULL LOG", Vector2(168, 34))
+	log_button.name = "ViewLogButton"
+	log_button.pressed.connect(_toggle_log)
+	head.add_child(log_button)
+	box.add_child(head)
+	log_label = _lbl("", 14, INK)
+	log_label.name = "CombatLog"
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	log_label.visible = false
+	box.add_child(log_label)
+	p.add_child(box)
+	return p
+
+
+func _toggle_log() -> void:
+	log_open = not log_open
+	_apply_log_mode()
+
+
+func _apply_log_mode() -> void:
+	if log_label:
+		log_label.visible = log_open
+	if log_button:
+		log_button.text = "HIDE LOG" if log_open else "VIEW FULL LOG"
+
+
+func _grid_stage(columns: int, pairs: Array, with_floats: bool) -> Dictionary:
+	var stage := Control.new()
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var grid := GridContainer.new()
-	grid.columns = Game.econ("BOARD_W")
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.columns = columns
+	grid.set_anchors_preset(Control.PRESET_FULL_RECT)
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return grid
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	stage.add_child(grid)
+	var links = LINKS.new()
+	links.set_anchors_preset(Control.PRESET_FULL_RECT)
+	links.grid = grid
+	links.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	links.arm(pairs)
+	stage.add_child(links)
+	var floats: Control = null
+	if with_floats:
+		floats = Control.new()
+		floats.set_anchors_preset(Control.PRESET_FULL_RECT)
+		floats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.add_child(floats)
+	return {"stage": stage, "grid": grid, "links": links, "floats": floats}
 
 
 func _sync_combat() -> void:
@@ -713,7 +971,7 @@ func _sync_combat() -> void:
 		return
 	var sim: CombatSim = Game.combat
 	if round_label:
-		round_label.text = "Round %d" % sim.round_i
+		round_label.text = "ROUND\n%d" % sim.round_i
 	if banner_panel and banner_label:
 		banner_panel.visible = sim.banner != ""
 		banner_label.text = sim.banner
@@ -721,88 +979,169 @@ func _sync_combat() -> void:
 		var start := maxi(0, sim.log_lines.size() - 8)
 		var lines := PackedStringArray()
 		for i in range(start, sim.log_lines.size()):
-			lines.append(str(sim.log_lines[i]))
+			lines.append("•  " + str(sim.log_lines[i]))
 		log_label.text = "\n".join(lines)
-	_fill_combat_grid(ally_grid, sim.allies, false)
-	_fill_combat_grid(enemy_grid, sim.enemies, true)
+		_apply_log_mode()
+	_retitle_ally_board()
+	var ally_cells := _combat_entries(sim.allies, false)
+	var enemy_cells := _combat_entries(sim.enemies, true)
+	var ally_adj := _adjacency(ally_cells)
+	var enemy_adj := _adjacency(enemy_cells)
+	_fill_combat_grid(ally_grid, ally_cells, ally_adj.glow)
+	_fill_combat_grid(enemy_grid, enemy_cells, enemy_adj.glow)
+	if ally_links:
+		ally_links.arm(ally_adj.pairs)
+	if enemy_links:
+		enemy_links.arm(enemy_adj.pairs)
+	_refresh_punch(sim)
+	var pending: Array = sim.floats.duplicate()
+	sim.floats.clear()
+	_spawn_floats(ally_floats, ally_grid, ally_cells, pending)
+	_spawn_floats(enemy_floats, enemy_grid, enemy_cells, pending)
 
 
-func _fill_combat_grid(grid: GridContainer, units: Array, enemy: bool) -> void:
+func _retitle_ally_board() -> void:
+	if ally_grid == null:
+		return
+	var frame := ally_grid.get_parent()
+	while frame != null and not (frame is VBoxContainer):
+		frame = frame.get_parent()
+	if frame == null:
+		return
+	var title := frame.find_child("BoardTitle", true, false)
+	if title is Label:
+		title.text = _your_board_title()
+
+
+func _your_board_title() -> String:
+	if Game.combat == null or Game.combat.allies.size() != 1:
+		return "YOUR MEADOW"
+	return "YOUR " + str(Game.combat.allies[0].name).to_upper()
+
+
+func _fill_combat_grid(grid: GridContainer, cells: Array, glow: Dictionary) -> void:
 	for c in grid.get_children():
 		grid.remove_child(c)
 		c.free()
-	var w := Game.econ("BOARD_W")
-	var cells := w * Game.econ("BOARD_H")
-	var by_pos := {}
-	for u in units:
-		var x: int
-		var y: int
-		if enemy:
-			x = int(u.local_x)
-			y = int(u.local_y)
-		else:
-			x = int(u.pos.x)
-			y = int(u.pos.y)
-		by_pos[y * w + x] = u
-	for i in cells:
-		grid.add_child(_combat_cell(by_pos.get(i, null)))
+	for i in cells.size():
+		grid.add_child(_combat_cell(cells[i], glow.get(i, Color(0, 0, 0, 0))))
 
 
-func _combat_cell(unit) -> Panel:
+func _combat_cell(unit, glow: Color) -> Panel:
 	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(148, 152)
+	panel.custom_minimum_size = Vector2(150, 128)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if unit == null:
 		panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
 		return panel
 	var alive: bool = bool(unit.alive)
-	panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, INK if alive else Color("b7b1a6"), 2))
+	var border := INK if alive else Color("b7b1a6")
+	var width := 2
+	var bg := SLOT_EMPTY
+	if glow.a > 0.0 and alive:
+		border = glow
+		width = 4
+		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
+	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.tooltip_text = _combat_detail(unit).replace("\n", "   ")
+	panel.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton:
+			var mb := ev as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				_toggle_punch(unit)
+	)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", 6)
-	margin.add_theme_constant_override("margin_right", 6)
-	margin.add_theme_constant_override("margin_top", 4)
-	margin.add_theme_constant_override("margin_bottom", 4)
+	margin.add_theme_constant_override("margin_left", 4)
+	margin.add_theme_constant_override("margin_right", 4)
+	margin.add_theme_constant_override("margin_top", 2)
+	margin.add_theme_constant_override("margin_bottom", 2)
 	panel.add_child(margin)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 1)
 	margin.add_child(box)
-	var name := _lbl(str(unit.name), 14, INK if alive else MUTED)
-	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var name := _lbl(_short_name(str(unit.name)), 14, INK if alive else MUTED)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(name)
-	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 52.0, bool(unit.get("boss", false)))
+	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 72.0, bool(unit.get("boss", false)))
 	if not alive:
 		token.modulate = Color(0.62, 0.62, 0.64)
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	holder.add_child(token)
 	box.add_child(holder)
-	var hp := int(unit.hp)
-	var mx := int(unit.max_hp)
-	var hp_l := _lbl("%d/%d%s" % [hp, mx, "" if alive else "  fainted"], 14, INK)
-	hp_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(hp_l)
-	box.add_child(_hp_bar(hp, mx))
-	var atk := int(unit.atk) + int(unit.bonus_atk)
-	var arm := int(unit.armor) + int(unit.bonus_armor)
-	var stats := _lbl("%d ATK   %d ARM" % [atk, arm], 13, INK)
-	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(stats)
-	var bonus := ""
-	if int(unit.bonus_armor) > 0:
-		bonus = "+%d ARM" % int(unit.bonus_armor)
-	elif int(unit.bonus_atk) > 0:
-		bonus = "+%d ATK" % int(unit.bonus_atk)
-	elif int(unit.bonus_regen) > 0:
-		bonus = "+%d REG" % int(unit.bonus_regen)
-	if bonus != "":
-		var b := _lbl(bonus, 13, INK)
-		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(b)
+	box.add_child(_hp_bar(int(unit.hp), int(unit.max_hp)))
 	return panel
+
+
+func _combat_detail(unit) -> String:
+	var atk := int(unit.atk) + int(unit.get("bonus_atk", 0))
+	var arm := int(unit.armor) + int(unit.get("bonus_armor", 0))
+	var reg := int(unit.get("regen", 0)) + int(unit.get("bonus_regen", 0))
+	var hp := "%d/%d HP" % [int(unit.hp), int(unit.max_hp)]
+	if not bool(unit.alive):
+		hp = "fainted"
+	return "%s\n%s\n%d ATK\n%d ARM\n%d REG" % [unit.name, hp, atk, arm, reg]
+
+
+func _toggle_punch(unit) -> void:
+	if unit == null:
+		return
+	if punch_uid == int(unit.uid):
+		punch_uid = -1
+	else:
+		punch_uid = int(unit.uid)
+	if Game.combat != null:
+		_refresh_punch(Game.combat)
+
+
+func _refresh_punch(sim: CombatSim) -> void:
+	if punch_box == null or punch_label == null:
+		return
+	if punch_uid < 0:
+		punch_box.visible = false
+		return
+	var found = null
+	for u in sim.allies:
+		if int(u.uid) == punch_uid:
+			found = u
+	if found == null:
+		for u in sim.enemies:
+			if int(u.uid) == punch_uid:
+				found = u
+	if found == null:
+		punch_box.visible = false
+		punch_uid = -1
+		return
+	punch_label.text = _combat_detail(found)
+	punch_box.visible = true
+
+
+func _spawn_floats(layer: Control, grid: GridContainer, cells: Array, pending: Array) -> void:
+	if layer == null:
+		return
+	var stacks := {}
+	for entry in pending:
+		var uid := int(entry.uid)
+		var index := -1
+		for i in cells.size():
+			var u = cells[i]
+			if u != null and int(u.uid) == uid:
+				index = i
+				break
+		if index < 0 or index >= grid.get_child_count():
+			continue
+		var n := int(stacks.get(uid, 0))
+		stacks[uid] = n + 1
+		var color := HIT if str(entry.kind) == "hit" else HEAL
+		call_deferred("_place_float", layer, grid.get_child(index), str(entry.text), color, n, 0)
 
 
 func _hp_bar(hp: int, mx: int) -> ProgressBar:
@@ -828,10 +1167,174 @@ func _hp_bar(hp: int, mx: int) -> ProgressBar:
 	return bar
 
 
+func _place_float(layer: Control, cell: Control, text: String, color: Color, slot_i: int, tries: int) -> void:
+	if not is_instance_valid(layer) or not is_instance_valid(cell):
+		return
+	if cell.size.x < 2.0 and tries < 6:
+		call_deferred("_place_float", layer, cell, text, color, slot_i, tries + 1)
+		return
+	var wrap := Control.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.custom_minimum_size = Vector2(72, 36)
+	wrap.z_index = 12
+	var shadow := _lbl(text, 28, Color(0.12, 0.08, 0.06, 0.9))
+	shadow.position = Vector2(2, 2)
+	var face := _lbl(text, 28, color)
+	wrap.add_child(shadow)
+	wrap.add_child(face)
+	layer.add_child(wrap)
+	var origin := layer.get_global_transform().affine_inverse() * (cell.global_position + Vector2(cell.size.x * 0.52 + slot_i * 26.0, cell.size.y * 0.28))
+	wrap.position = origin
+	var tw := wrap.create_tween()
+	tw.tween_property(wrap, "position:y", origin.y - 40.0, 0.62)
+	tw.parallel().tween_property(wrap, "modulate:a", 0.0, 0.5).set_delay(0.2)
+	tw.finished.connect(wrap.queue_free)
+
+
+func _combat_entries(units: Array, enemy: bool) -> Array:
+	var w := Game.econ("BOARD_W")
+	var h := Game.econ("BOARD_H")
+	var cells: Array = []
+	cells.resize(w * h)
+	for i in cells.size():
+		cells[i] = null
+	for u in units:
+		var x: int = int(u.local_x) if enemy else int(u.pos.x)
+		var y: int = int(u.local_y) if enemy else int(u.pos.y)
+		if x < 0 or y < 0 or x >= w or y >= h:
+			continue
+		cells[y * w + x] = u
+	return cells
+
+
+func _adjacency(cells: Array) -> Dictionary:
+	var pairs: Array = []
+	var glow := {}
+	var w := Game.econ("BOARD_W")
+	var h := Game.econ("BOARD_H")
+	for i in cells.size():
+		var a = cells[i]
+		if a == null or not bool(a.get("alive", true)):
+			continue
+		var x: int = int(i) % w
+		var y: int = int(i) / w
+		if x + 1 < w:
+			_link_if(cells, i, i + 1, pairs, glow)
+		if y + 1 < h and i + w < cells.size():
+			_link_if(cells, i, i + w, pairs, glow)
+	return {"pairs": pairs, "glow": glow}
+
+
+func _link_if(cells: Array, ia: int, ib: int, pairs: Array, glow: Dictionary) -> void:
+	var b = cells[ib]
+	var a = cells[ia]
+	if b == null or not bool(b.get("alive", true)):
+		return
+	if str(a.get("family", "")) == "" or str(a.family) != str(b.get("family", "")):
+		return
+	var color := _family_color(str(a.family))
+	pairs.append({"a": ia, "b": ib, "color": color})
+	glow[ia] = color
+	glow[ib] = color
+
+
+func _family_color(family: String) -> Color:
+	match family:
+		"leaf":
+			return Color("6fae7c")
+		"ember":
+			return Color("e08b78")
+		"puff":
+			return Color("8eadd8")
+		_:
+			return Color("e09aa4")
+
+
+func _teach_line() -> String:
+	if Game.run == null:
+		return ""
+	match str(Game.run.node_id):
+		"sparring_1":
+			return "Same-family neighbours glow. Watch the boards."
+		"shop_a":
+			return "Freeze keeps a card. A pair shows 2/3. Interest is +1 per 5 saved."
+		_:
+			return ""
+
+
+func _short_name(name: String) -> String:
+	if name.length() <= 14:
+		return name
+	return name.substr(0, 13) + "…"
+
+
+func _chip(text: String, bg: Color) -> Panel:
+	var p := Panel.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.custom_minimum_size = Vector2(52, 24)
+	var s := _style(bg, INK, 2)
+	s.set_content_margin_all(1)
+	p.add_theme_stylebox_override("panel", s)
+	var l := _lbl(text, 13, INK)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	p.add_child(l)
+	return p
+
+
+func _pop_wrap(token: Control) -> Control:
+	var pop := Control.new()
+	pop.name = "MergePop"
+	pop.custom_minimum_size = token.custom_minimum_size
+	pop.size = token.custom_minimum_size
+	pop.pivot_offset = pop.size * 0.5
+	pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	token.position = Vector2.ZERO
+	pop.add_child(token)
+	return pop
+
+
+func _play_merge_pop(node: Control) -> void:
+	node.scale = Vector2(0.62, 0.62)
+	var tw := node.create_tween()
+	tw.tween_property(node, "scale", Vector2(1.28, 1.28), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _pulse_slot(slot: Control) -> void:
+	var pulse := ColorRect.new()
+	pulse.color = Color("f6d56b")
+	pulse.modulate.a = 0.0
+	pulse.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pulse.z_index = 4
+	slot.add_child(pulse)
+	var tw := pulse.create_tween()
+	tw.tween_property(pulse, "modulate:a", 0.55, 0.1)
+	tw.tween_property(pulse, "modulate:a", 0.0, 0.4)
+	tw.finished.connect(pulse.queue_free)
+
+
+func _hold_attention() -> void:
+	var veil := Control.new()
+	veil.name = "AttentionHold"
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	veil.z_index = 80
+	add_child(veil)
+	var tw := create_tween()
+	tw.tween_interval(0.5)
+	tw.finished.connect(func() -> void:
+		if is_instance_valid(veil):
+			veil.queue_free()
+	)
+
+
 func _toggle_speed() -> void:
 	Game.speed = 2 if Game.speed == 1 else 1
 	if speed_button:
-		speed_button.text = "Speed ×%d" % Game.speed
+		speed_button.text = "SPEED  ▶  ×%d" % Game.speed
 	if tick and Game.phase == "combat":
 		tick.wait_time = 0.72 / float(maxi(1, Game.speed))
 

@@ -23,6 +23,7 @@ func _main() -> void:
 		["starters_locked", _test_starters_locked],
 		["strict_merge", _test_strict_merge],
 		["buddy_preview", _test_buddy_preview],
+		["combat_floats", _test_combat_floats],
 		["wild_buddy_visible", _test_wild_buddy],
 		["buddy_reduces_damage", _test_buddy_damage],
 		["splash", _test_splash],
@@ -221,11 +222,16 @@ func _test_buddy_preview() -> String:
 	var arm = "+%d ARM" % g.econ("LEAF_BUDDY_ARMOR")
 	if str(labels[0]) != arm or str(labels[1]) != arm:
 		return "orthogonal leaf preview " + str(labels)
+	var pairs: Array = g.board_buddy_pairs()
+	if pairs.size() != 1 or int(pairs[0].a) != 0 or int(pairs[0].b) != 1:
+		return "orthogonal link " + str(pairs)
 	g.run.board[1] = null
 	_put("board", 4, "sproutling")
 	labels = g.board_buddy_labels()
 	if str(labels.get(0, "")) != "" or str(labels.get(4, "")) != "":
 		return "diagonal should be quiet"
+	if not g.board_buddy_pairs().is_empty():
+		return "diagonal should not link"
 	g.blank_run()
 	_put("board", 0, "sproutling")
 	_put("board", 1, "sparkpup")
@@ -368,6 +374,22 @@ func _test_boss_summons() -> String:
 	if sim.banner == "" and sim.banner_ttl <= 0:
 		# banner may already have been consumed if ttl expired inside the step; the log is the contract
 		pass
+	return ""
+
+
+func _test_combat_floats() -> String:
+	var sim = _sim([_fighter("sproutling", 1, 1)], "sparring_pups")
+	if not sim.floats.is_empty():
+		return "floats before the first step"
+	sim.step()
+	if sim.floats.is_empty():
+		return "no float on a hit"
+	var hit := false
+	for entry in sim.floats:
+		if str(entry.kind) == "hit" and str(entry.text).begins_with("-") and int(entry.uid) > 0:
+			hit = true
+	if not hit:
+		return "hit float missing " + str(sim.floats)
 	return ""
 
 
@@ -554,6 +576,9 @@ func _test_ui() -> String:
 	var unlock: Node = main.find_child("UnlockCard", true, false)
 	if unlock == null:
 		return "unlock card missing"
+	var hero: Node = unlock.find_child("Capsule", true, false)
+	if hero == null or not (hero is TextureRect) or hero.custom_minimum_size.y < 80.0:
+		return "unlock capsule is not the hero"
 	var dex: Node = main.find_child("DexTick", true, false)
 	if dex == null or "Foxfire" not in dex.text:
 		return "dex tick not visible"
@@ -568,6 +593,11 @@ func _test_ui() -> String:
 	var bud: Node = main.find_child("Starter_budmite", true, false)
 	if bud == null or "NEW" not in bud.text:
 		return "run 2 starter not marked new"
+	if _text_has(main, "greybox"):
+		return "greybox subtitle still showing"
+	var bud_cap: Node = bud.find_child("Capsule", true, false)
+	if bud_cap == null or not (bud_cap is TextureRect) or bud_cap.texture == null:
+		return "budmite starter is not a capsule"
 	var sprout: Node = main.find_child("Starter_sproutling", true, false)
 	if sprout == null:
 		return "sproutling card missing"
@@ -590,6 +620,15 @@ func _test_ui() -> String:
 	var trait_label: Node = main.find_child("TraitLabel", true, false)
 	if trait_label == null or trait_label.text == "":
 		return "trait not shown"
+	if main.find_child("BuddyLegend", true, false) != null:
+		return "buddy wall still on the board"
+	if _text_has(main, "seed"):
+		return "seed visible on the hud"
+	if _text_has(main, "Orthogonal buddies"):
+		return "buddy formula still on the board"
+	var spar_teach: Node = main.find_child("TeachLine", true, false)
+	if spar_teach == null:
+		return "sparring should teach once"
 	fight.pressed.emit()
 	await process_frame
 	await process_frame
@@ -601,6 +640,11 @@ func _test_ui() -> String:
 	speed.pressed.emit()
 	if g.speed != 2:
 		return "speed stayed at 1"
+	if "×2" not in str(speed.text):
+		return "speed x2 not readable: " + str(speed.text)
+	var clog: Node = main.find_child("CombatLog", true, false)
+	if clog == null or clog.visible:
+		return "combat log should start collapsed"
 	if main.tick:
 		main.tick.stop()
 	var guard = 0
@@ -633,7 +677,40 @@ func _test_ui() -> String:
 	var corner = main.find_child("Board0", true, false)
 	if corner == null or int(corner.get("unit_uid")) < 0:
 		return "drop did not place"
+	if _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
+		return "shop teach wall still up"
+	if main.find_child("TeachLine", true, false) == null:
+		return "first stall should teach once"
+	if _button_says(main, "Sell"):
+		return "per-cell sell button remains"
+	g.enter_node("shop_b")
+	await process_frame
+	await process_frame
+	if main.find_child("TeachLine", true, false) != null:
+		return "teach returned after the first stall"
+	if _text_has(main, "Orthogonal buddies") or _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
+		return "later shop still has a teach wall"
 	return ""
+
+
+func _text_has(node: Node, needle: String) -> bool:
+	if node is Label and needle.to_lower() in str(node.text).to_lower():
+		return true
+	if node is Button and needle.to_lower() in str(node.text).to_lower():
+		return true
+	for c in node.get_children():
+		if _text_has(c, needle):
+			return true
+	return false
+
+
+func _button_says(node: Node, needle: String) -> bool:
+	if node is Button and str(node.text).begins_with(needle):
+		return true
+	for c in node.get_children():
+		if _button_says(c, needle):
+			return true
+	return false
 
 
 func _put(zone: String, index: int, id: String) -> Dictionary:

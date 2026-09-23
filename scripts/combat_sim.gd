@@ -11,6 +11,8 @@ var timed_out: bool = false
 var banner: String = ""
 var banner_ttl: int = 0
 var adds_summoned: int = 0
+# Presentation only. Each step replaces this with {uid, text, kind} for hits and heals.
+var floats: Array = []
 var economy: Dictionary = {}
 var enemy_defs: Dictionary = {}
 var script_steps: Array = []
@@ -130,6 +132,7 @@ func setup(player_units: Array, encounter: Dictionary, defs: Dictionary, econ: D
 func step() -> void:
 	if over:
 		return
+	floats = []
 	if banner_ttl > 0:
 		banner_ttl -= 1
 		if banner_ttl == 0:
@@ -364,6 +367,8 @@ func _hurt(u: Dictionary, amount: int) -> void:
 	if not bool(u.alive):
 		return
 	u.hp = int(u.hp) - amount
+	if amount != 0:
+		floats.append({"uid": int(u.uid), "text": "-%d" % amount, "kind": "hit"})
 	if int(u.hp) <= 0:
 		u.hp = 0
 		u.alive = false
@@ -374,6 +379,7 @@ func _heal(u: Dictionary, amount: int) -> void:
 	if not bool(u.alive) or amount <= 0:
 		return
 	u.hp = mini(int(u.max_hp), int(u.hp) + amount)
+	floats.append({"uid": int(u.uid), "text": "+%d" % amount, "kind": "heal"})
 
 
 func _total_atk(u: Dictionary) -> int:
