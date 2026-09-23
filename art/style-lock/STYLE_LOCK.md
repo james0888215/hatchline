@@ -31,6 +31,7 @@ Board-game tokens on cream paper. Soft pastel capsules. Thick outline. Almost ze
 4. `04-silhouettes-puff.png`  
 5. `05-combat-mock.png`  
 6. `06-token-clarity.png` — enemy mite + Puff shop clarity  
+7. `07-token-clarity-elites.png` — Nest Warden / Bramble / Sprig Add / Driftkin  
 
 ## Archive
 
@@ -59,3 +60,12 @@ Tiny symbols alone are not enough; badge/sprout must survive 3×3 cell shrink. L
 - **Cumulon** — cream capsule + **top horns** (taller); no wings  
 
 Colour + silhouette both differ. Do not ship two Puff shop faces that share the same outline.
+
+### Elites, adds, Driftkin (`07-token-clarity-elites.png`)
+
+- **Nest Warden** — taller dusty rose/mauve capsule + crown on top  
+- **Bramble** — rose-sage capsule + thorn spikes on the outline  
+- **Sprig Add** — smaller pale rose capsule + twin leaf sprigs (size is a telegraph)  
+- **Driftkin** — powder blue capsule + **one-sided sail** (not Cloudbud’s twin wings); optional drift dots  
+
+Still: silhouette or large badge at 3×3; no plain shared rose pill for different roles.

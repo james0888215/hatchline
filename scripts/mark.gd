@@ -1,8 +1,6 @@
 extends Control
 
 # HUD glyphs only. Critter faces come from the cut tokens, not drawn marks.
-# TODO(Art): bramble, warden, and sprig still share the plain rose pill until
-# a clarity sheet gives each a silhouette or a large badge.
 
 var kind: String = ""
 

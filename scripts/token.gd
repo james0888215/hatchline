@@ -2,8 +2,6 @@ extends RefCounted
 
 # Flat capsule tokens cut from the locked silhouette sheets.
 # One texture per family + tier. Named clarity crops override a shared face.
-# TODO(Art): later wild traits (bramble, warden, sprig) still use the plain
-# rose pill until a clarity sheet gives each a silhouette or large badge.
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family
@@ -24,6 +22,12 @@ static func enemy_mark(def_id: String) -> String:
 			return "meadow"
 		"mite_small":
 			return "tired"
+		"warden":
+			return "warden"
+		"bramble":
+			return "bramble"
+		"sprig":
+			return "sprig"
 		_:
 			return ""
 
@@ -35,6 +39,8 @@ static func species_mark(family: String, line: String, tier: int) -> String:
 				return "cloudbud"
 			"fluff":
 				return "cumulon"
+			"nimbus":
+				return "driftkin"
 	return ""
 
 
@@ -49,6 +55,14 @@ static func clarity_texture(mark: String) -> Texture2D:
 			file = "puff_cloudbud"
 		"cumulon":
 			file = "puff_cumulon"
+		"warden":
+			file = "beast_warden"
+		"bramble":
+			file = "beast_bramble"
+		"sprig":
+			file = "beast_sprig"
+		"driftkin":
+			file = "puff_driftkin"
 		_:
 			return null
 	var path := "res://art/tokens/%s.png" % file
@@ -87,6 +101,11 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 		h = max_h * 0.74
 	elif tier == 2:
 		h = max_h * 0.88
+	# Sheet 07: the crown reads taller, and the sprig's size is the telegraph.
+	if mark == "warden":
+		h *= 1.16
+	elif mark == "sprig":
+		h *= 0.68
 	var w := h * aspect
 	var max_w := max_h * 1.9
 	if w > max_w:

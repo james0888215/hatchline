@@ -46,6 +46,14 @@ CLARITY_BOXES = [
     ("puff_cumulon", (768, 458, 1012, 569)),
 ]
 
+# Elite / add / Driftkin heroes on sheet 07. Captions and the tiny grids stay out.
+ELITE_BOXES = [
+    ("beast_warden", (124, 134, 322, 248)),
+    ("beast_bramble", (530, 150, 730, 248)),
+    ("beast_sprig", (940, 148, 1100, 248)),
+    ("puff_driftkin", (748, 458, 1010, 556)),
+]
+
 
 def key_paper(rgba: np.ndarray) -> np.ndarray:
     """Drop the paper background. Body fills stay (mint, peach, cream, rose)."""
@@ -133,6 +141,12 @@ def main() -> None:
     clarity = LOCK / "06-token-clarity.png"
     for name, box in CLARITY_BOXES:
         img = cut_clarity(clarity, box)
+        dest = OUT / f"{name}.png"
+        img.save(dest)
+        print(f"{dest.name} {img.size}")
+    elites = LOCK / "07-token-clarity-elites.png"
+    for name, box in ELITE_BOXES:
+        img = cut_clarity(elites, box)
         dest = OUT / f"{name}.png"
         img.save(dest)
         print(f"{dest.name} {img.size}")

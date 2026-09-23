@@ -539,10 +539,14 @@ func _coin_pill(amount: String, kind: String) -> Panel:
 
 func _ribbon() -> HBoxContainer:
 	var row := HBoxContainer.new()
+	row.name = "PathRibbon"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 0)
 	var cur := str(Game.run.node_id)
 	var visited: Array = Game.run.visited
 	var steps: Array = Game.circuit.ribbon
+	var states: Array = []
 	for s in steps.size():
 		var step: Dictionary = steps[s]
 		var ids: Array = step.ids
@@ -552,11 +556,55 @@ func _ribbon() -> HBoxContainer:
 			for id in ids:
 				if id in visited:
 					past = true
-		var lab := _lbl(str(step.label), 15 if active else 13, INK if active else (GOOD if past else MUTED))
-		row.add_child(lab)
-		if s < steps.size() - 1:
-			row.add_child(_lbl("·", 13, MUTED))
+		states.append("now" if active else ("past" if past else "next"))
+	for s in steps.size():
+		if s > 0:
+			var walked: bool = str(states[s - 1]) == "past" or str(states[s]) != "next"
+			row.add_child(_path_link(walked))
+		row.add_child(_path_node(str(steps[s].label), str(states[s])))
 	return row
+
+
+func _path_link(walked: bool) -> CenterContainer:
+	var hold := CenterContainer.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hold.custom_minimum_size = Vector2(14, 16)
+	var line := ColorRect.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.custom_minimum_size = Vector2(14, 3)
+	line.color = GOOD if walked else Color("d5cfc3")
+	hold.add_child(line)
+	return hold
+
+
+func _path_node(label: String, state: String) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 1)
+	var hold := CenterContainer.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hold.custom_minimum_size = Vector2(0, 16)
+	var dot := Panel.new()
+	var d := 16 if state == "now" else 11
+	dot.custom_minimum_size = Vector2(d, d)
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if state == "now":
+		dot.name = "PathNow"
+	var bg := GOLD if state == "now" else (GOOD if state == "past" else Color("f7f3ea"))
+	var border := INK if state == "now" else (GOOD if state == "past" else MUTED)
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(d)
+	s.set_content_margin_all(0)
+	dot.add_theme_stylebox_override("panel", s)
+	hold.add_child(dot)
+	box.add_child(hold)
+	var lab := _lbl(label, 13 if state == "now" else 11, INK if state == "now" else (GOOD if state == "past" else MUTED))
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(lab)
+	return box
 
 
 func _flash_bar() -> Control:

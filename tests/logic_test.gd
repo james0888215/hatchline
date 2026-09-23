@@ -416,6 +416,16 @@ func _test_combat_floats() -> String:
 		return "mite clarity tokens missing"
 	if tokens.clarity_texture("cloudbud") == null or tokens.clarity_texture("cumulon") == null:
 		return "puff clarity tokens missing"
+	if tokens.enemy_mark("warden") == "" or tokens.enemy_mark("bramble") == "" or tokens.enemy_mark("sprig") == "":
+		return "elite telegraph missing"
+	if tokens.enemy_mark("warden") == tokens.enemy_mark("mite"):
+		return "warden shares the mite face"
+	if tokens.species_mark("puff", "nimbus", 2) == "" or tokens.species_mark("puff", "nimbus", 2) == tokens.species_mark("puff", "cotton", 2):
+		return "driftkin still shares cloudbud"
+	if tokens.clarity_texture("warden") == null or tokens.clarity_texture("bramble") == null:
+		return "elite clarity tokens missing"
+	if tokens.clarity_texture("sprig") == null or tokens.clarity_texture("driftkin") == null:
+		return "sprig or driftkin token missing"
 	return ""
 
 
