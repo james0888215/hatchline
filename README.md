@@ -1,8 +1,15 @@
 # Hatchline
 
-A solo PvE auto-battler greybox. You hatch critters, **strictly triple-merge** them, and place them on a **3×3** meadow. Combat plays itself. One circuit: the Meadow.
+A solo PvE auto-battler. You hatch critters, **strictly triple-merge** them, and place them on a **3×3** meadow. Combat plays itself. One circuit: the Meadow.
 
-This is a playable placeholder. Critters are colored rectangles and labels. There is no production art.
+Critters on the board, bench, shop, and combat grid are flat capsule tokens from the locked Hatch Art style. Meadow Circuit rules are unchanged. There is no full production atlas.
+
+## Art
+
+- [`art/style-lock/`](art/style-lock/) — locked reference: `STYLE_LOCK.md`, the mood board, Leaf / Ember / Puff silhouette sheets, and the combat mock.
+- [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
+
+`tools/extract_tokens.py` recuts the tokens if the sheets change. Body, face, and the single family mark stay on the sheet; tier is size plus that one silhouette add.
 
 ## Open it
 

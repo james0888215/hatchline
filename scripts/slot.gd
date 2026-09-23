@@ -1,17 +1,18 @@
 extends Panel
 
+const TOKENS := preload("res://scripts/token.gd")
+
 var zone: String = "board"
 var slot_index: int = -1
 var unit_uid: int = -1
-var preview_color: Color = Color("f0a15a")
+var preview_family: String = "leaf"
+var preview_tier: int = 1
 
 
 func _get_drag_data(_at: Vector2) -> Variant:
 	if unit_uid < 0:
 		return null
-	var preview := ColorRect.new()
-	preview.custom_minimum_size = Vector2(72, 72)
-	preview.color = preview_color
+	var preview := TOKENS.make(preview_family, preview_tier, 72.0)
 	set_drag_preview(preview)
 	return {"uid": unit_uid}
 
