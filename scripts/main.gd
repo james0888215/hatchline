@@ -1,6 +1,7 @@
 extends Control
 
 const SLOT := preload("res://scripts/slot.gd")
+const TOKENS := preload("res://scripts/token.gd")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -89,8 +90,8 @@ func _rebuild() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_theme_constant_override("margin_left", 16)
 	root.add_theme_constant_override("margin_right", 16)
-	root.add_theme_constant_override("margin_top", 12)
-	root.add_theme_constant_override("margin_bottom", 12)
+	root.add_theme_constant_override("margin_top", 8)
+	root.add_theme_constant_override("margin_bottom", 8)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(root)
 	var page := VBoxContainer.new()
@@ -184,15 +185,21 @@ func _starter_card(id: String) -> Button:
 	var c: Dictionary = Game.critters[id]
 	var b := Button.new()
 	b.name = "Starter_%s" % id
-	b.custom_minimum_size = Vector2(210, 168)
+	b.custom_minimum_size = Vector2(280, 168)
 	var tag := ""
 	if str(c.line) in Game.profile.new_lines:
 		tag = "NEW\n"
 	b.text = "%s%s\n%s · T%d\n%s\n%s" % [tag, c.name, str(c.family).capitalize(), int(c.tier), Game.stat_line(c), c.blurb]
 	b.add_theme_font_size_override("font_size", 15)
-	b.add_theme_stylebox_override("normal", _style(_family(str(c.family)), INK, 3))
-	b.add_theme_stylebox_override("hover", _style(_family(str(c.family)).lightened(0.08), INK, 3))
-	b.add_theme_stylebox_override("pressed", _style(_family(str(c.family)).darkened(0.06), INK, 3))
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var tex := TOKENS.texture(str(c.family), int(c.tier))
+	if tex != null:
+		b.icon = tex
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 84)
+	b.add_theme_stylebox_override("normal", _style(Color("fffdf8"), INK, 3))
+	b.add_theme_stylebox_override("hover", _style(Color("fff6e4"), INK, 3))
+	b.add_theme_stylebox_override("pressed", _style(Color("f3e6cc"), INK, 3))
 	b.pressed.connect(Game.choose_starter.bind(id))
 	return b
 
@@ -206,12 +213,18 @@ func _dex_grid() -> GridContainer:
 	for id in Game.critter_order:
 		var known: bool = id in Game.profile.discovered
 		var panel := Panel.new()
-		panel.custom_minimum_size = Vector2(150, 52)
+		panel.custom_minimum_size = Vector2(168, 58)
 		var c: Dictionary = Game.critters[id]
-		panel.add_theme_stylebox_override("panel", _style(_family(str(c.family)) if known else Color("e4dfd4"), INK if known else Color("c8c2b6"), 2))
+		panel.add_theme_stylebox_override("panel", _style(Color("fffdf8") if known else Color("e4dfd4"), INK if known else Color("c8c2b6"), 2))
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 6)
+		if known:
+			row.add_child(TOKENS.make(str(c.family), int(c.tier), 40.0))
 		var lab := _lbl("✓ %s  T%d" % [c.name, int(c.tier)] if known else "???", 13, INK if known else MUTED)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(lab)
+		row.add_child(lab)
+		panel.add_child(row)
 		grid.add_child(panel)
 	return grid
 
@@ -344,10 +357,15 @@ func _build_result(page: VBoxContainer) -> void:
 		var card := Panel.new()
 		card.name = "UnlockCard"
 		card.custom_minimum_size = Vector2(0, 72)
-		card.add_theme_stylebox_override("panel", _style(_family("leaf"), INK, 3))
+		card.add_theme_stylebox_override("panel", _style(Color("fffdf8"), INK, 3))
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 10)
+		row.add_child(TOKENS.make("leaf", 1, 48.0))
 		var inner := _lbl(str(result.unlock), 18, INK)
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(inner)
+		row.add_child(inner)
+		card.add_child(row)
 		page.add_child(card)
 	var again := _btn("Again" if won else "Retry", Vector2(280, 64))
 	again.name = "RetryButton"
@@ -406,10 +424,16 @@ func _flash_bar() -> Control:
 	var f: Dictionary = Game.run.merge_flash
 	var panel := Panel.new()
 	panel.name = "MergeFlash"
-	panel.custom_minimum_size = Vector2(0, 62)
-	panel.add_theme_stylebox_override("panel", _style(_family(str(f.family)), INK, 3))
+	panel.custom_minimum_size = Vector2(0, 72)
+	panel.add_theme_stylebox_override("panel", _style(Color("fff6e4"), GOLD, 3))
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 12)
+	row.add_child(TOKENS.make(str(f.family), int(f.tier), 52.0))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title := "TRIPLE    %s    →    %s" % [f.from, f.to]
 	if int(f.count) > 1:
 		title = "TRIPLE ×%d    %s    →    %s" % [int(f.count), f.from, f.to]
@@ -419,17 +443,18 @@ func _flash_bar() -> Control:
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(a)
 	box.add_child(b)
-	panel.add_child(box)
+	row.add_child(box)
+	panel.add_child(row)
 	return panel
 
 
 func _bench_column() -> VBoxContainer:
 	var col := VBoxContainer.new()
-	col.custom_minimum_size = Vector2(210, 0)
+	col.custom_minimum_size = Vector2(236, 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_lbl("Bench", 16, INK))
 	for i in Game.run.bench.size():
-		var slot := _make_slot("bench", i, Game.run.bench[i], 200, 78, true)
+		var slot := _make_slot("bench", i, Game.run.bench[i], 236, 78, true)
 		slot.name = "Bench%d" % i
 		col.add_child(slot)
 	return col
@@ -447,12 +472,12 @@ func _board_column() -> VBoxContainer:
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var buddies := Game.board_buddy_labels()
 	for i in Game.run.board.size():
-		var slot := _make_slot("board", i, Game.run.board[i], 132, 132, true)
+		var slot := _make_slot("board", i, Game.run.board[i], 168, 132, true)
 		slot.name = "Board%d" % i
 		if Game.run.board[i] != null and str(buddies.get(i, "")) != "":
 			var tag := _lbl(str(buddies[i]), 13, INK)
 			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			slot.get_child(0).get_child(0).add_child(tag)
+			slot.get_node("Margin/SlotBody").add_child(tag)
 		grid.add_child(slot)
 	col.add_child(grid)
 	var legend := "Orthogonal buddies — Leaf +%d armour, Ember +%d damage, Puff +%d regen, per neighbour." % [
@@ -467,7 +492,7 @@ func _board_column() -> VBoxContainer:
 
 func _right_column() -> VBoxContainer:
 	var col := VBoxContainer.new()
-	col.custom_minimum_size = Vector2(280, 0)
+	col.custom_minimum_size = Vector2(300, 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var node := Game.current_node()
 	if str(node.type) == "shop":
@@ -498,41 +523,54 @@ func _right_column() -> VBoxContainer:
 func _shop_card(i: int) -> Panel:
 	var card: Dictionary = Game.run.shop[i]
 	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(260, 92)
+	panel.custom_minimum_size = Vector2(286, 96)
 	var def_id := str(card.def_id)
 	var frozen: bool = bool(card.frozen)
-	var bg := Color("fffdf8")
 	var border := Color("7aa2d6") if frozen else Color("cfc6b8")
-	if def_id != "":
-		bg = _family(str(Game.critters[def_id].family)).lightened(0.12)
-	panel.add_theme_stylebox_override("panel", _style(bg, border, 3 if frozen else 2))
+	panel.add_theme_stylebox_override("panel", _style(Color("fffdf8"), border, 3 if frozen else 2))
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	panel.add_child(margin)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	margin.add_child(row)
+	if def_id == "":
+		row.add_child(_lbl("Empty", 14, MUTED))
+		return panel
+	var c: Dictionary = Game.critters[def_id]
+	row.add_child(TOKENS.make(str(c.family), int(c.tier), 64.0))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if def_id == "":
-		box.add_child(_lbl("Empty", 14, MUTED))
-	else:
-		var c: Dictionary = Game.critters[def_id]
-		var name := str(c.name)
-		if frozen:
-			name = "FROZEN  " + name
-		var title := _lbl("%s   %s T%d" % [name, str(c.family).capitalize(), int(c.tier)], 14, INK)
-		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(title)
-		var stats := _lbl(Game.stat_line(c), 12, INK)
-		stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(stats)
-		var row := HBoxContainer.new()
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var buy := _btn("Buy %d" % Game.buy_cost_for_tier(int(c.tier)), Vector2(110, 30))
-		buy.name = "BuyButton%d" % i
-		buy.pressed.connect(Game.buy.bind(i))
-		row.add_child(buy)
-		var fr := _btn("Unfreeze" if frozen else "Freeze", Vector2(110, 30))
-		fr.name = "FreezeButton%d" % i
-		fr.pressed.connect(Game.toggle_freeze.bind(i))
-		row.add_child(fr)
-		box.add_child(row)
-	panel.add_child(box)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 1)
+	var name := str(c.name)
+	if frozen:
+		name = "FROZEN  " + name
+	var title := _lbl("%s   %s T%d" % [name, str(c.family).capitalize(), int(c.tier)], 14, INK)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(title)
+	var stats := _lbl(Game.stat_line(c), 12, INK)
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(stats)
+	var actions := HBoxContainer.new()
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actions.add_theme_constant_override("separation", 6)
+	var buy := _btn("Buy %d" % Game.buy_cost_for_tier(int(c.tier)), Vector2(96, 28))
+	buy.name = "BuyButton%d" % i
+	buy.pressed.connect(Game.buy.bind(i))
+	actions.add_child(buy)
+	var fr := _btn("Unfreeze" if frozen else "Freeze", Vector2(96, 28))
+	fr.name = "FreezeButton%d" % i
+	fr.pressed.connect(Game.toggle_freeze.bind(i))
+	actions.add_child(fr)
+	box.add_child(actions)
+	row.add_child(box)
 	return panel
 
 
@@ -547,16 +585,25 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 		placed[int(spec.y) * w + int(spec.x)] = spec
 	for i in cells:
 		var panel := Panel.new()
-		panel.custom_minimum_size = Vector2(78, 56)
+		panel.custom_minimum_size = Vector2(92, 78)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if placed.has(i):
 			var spec: Dictionary = placed[i]
 			var d: Dictionary = Game.enemy_defs[str(spec.def)]
 			var boss: bool = bool(d.get("boss", false))
-			panel.add_theme_stylebox_override("panel", _style(Color("8e6bb0") if boss else Color("ef9a94"), INK, 2))
+			panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, INK, 2))
+			var box := VBoxContainer.new()
+			box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_theme_constant_override("separation", 0)
+			var holder := CenterContainer.new()
+			holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			holder.add_child(TOKENS.make(str(d.family), 1, 46.0, boss))
+			box.add_child(holder)
 			var lab := _lbl(str(d.name), 11, INK)
 			lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			panel.add_child(lab)
+			box.add_child(lab)
+			panel.add_child(box)
 		else:
 			panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
 		grid.add_child(panel)
@@ -571,7 +618,7 @@ func _sell_zone() -> Control:
 		Game.econ("SELL_T1"), Game.econ("SELL_T2"), Game.econ("SELL_T3")
 	], 14, BAD)
 	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.get_child(0).get_child(0).add_child(lab)
+	slot.get_node("Margin/SlotBody").add_child(lab)
 	return slot
 
 
@@ -585,16 +632,20 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: b
 	slot.mouse_filter = Control.MOUSE_FILTER_STOP
 	var border := Color("cfc6b8")
 	var bg := SLOT_EMPTY
+	var width := 1
 	if zone == "sell":
 		bg = Color("f7e1dc")
 		border = BAD
+		width = 2
 	elif unit != null:
-		bg = _tier_color(str(unit.family), int(unit.tier))
-		border = GOLD if Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1)) else INK
-		slot.set("preview_color", bg)
-	var width := 4 if unit != null and Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1)) else (2 if unit != null else 1)
+		var flash := Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1))
+		border = GOLD if flash else INK
+		width = 4 if flash else 2
+		slot.set("preview_family", str(unit.family))
+		slot.set("preview_tier", int(unit.tier))
 	slot.add_theme_stylebox_override("panel", _style(bg, border, width))
 	var margin := MarginContainer.new()
+	margin.name = "Margin"
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_theme_constant_override("margin_left", 6)
@@ -602,27 +653,49 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, show_sell: b
 	margin.add_theme_constant_override("margin_top", 4)
 	margin.add_theme_constant_override("margin_bottom", 4)
 	slot.add_child(margin)
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 0)
-	margin.add_child(box)
-	if unit != null:
-		var name := _lbl("%s   T%d" % [unit.name, int(unit.tier)], 14, INK)
-		name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(name)
-		var meta := _lbl("%s    %d HP  %d ATK  %d ARM" % [str(unit.family).capitalize(), int(unit.max_hp), int(unit.atk), int(unit.armor)], 11, INK)
-		meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(meta)
-		var badge := Game.pair_badge(str(unit.def_id))
-		if badge != "":
-			var b := _lbl(badge + "  waiting", 13, BAD)
-			b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			box.add_child(b)
-		if show_sell:
-			var sell := _btn("Sell %d" % Game.sell_value(int(unit.tier)), Vector2(72, 22))
-			sell.add_theme_font_size_override("font_size", 12)
-			sell.pressed.connect(Game.sell_uid.bind(int(unit.uid)))
-			box.add_child(sell)
+	var body := VBoxContainer.new()
+	body.name = "SlotBody"
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_theme_constant_override("separation", 1)
+	margin.add_child(body)
+	if unit == null:
+		return slot
+	var wide := w > h + 40.0
+	var token := TOKENS.make(str(unit.family), int(unit.tier), 52.0 if wide else 46.0)
+	var name := _lbl("%s  T%d" % [unit.name, int(unit.tier)], 14, INK)
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var meta := _lbl("%d HP   %d ATK   %d ARM" % [int(unit.max_hp), int(unit.atk), int(unit.armor)], 13, INK)
+	meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	texts.add_child(name)
+	texts.add_child(meta)
+	var badge := Game.pair_badge(str(unit.def_id))
+	if badge != "":
+		var b := _lbl(badge + "  waiting", 13, BAD)
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texts.add_child(b)
+	if show_sell:
+		var sell := _btn("Sell %d" % Game.sell_value(int(unit.tier)), Vector2(78, 24))
+		sell.add_theme_font_size_override("font_size", 13)
+		sell.pressed.connect(Game.sell_uid.bind(int(unit.uid)))
+		texts.add_child(sell)
+	if wide:
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(token)
+		row.add_child(texts)
+		body.add_child(row)
+	else:
+		var holder := CenterContainer.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		holder.add_child(token)
+		body.add_child(holder)
+		body.add_child(texts)
 	return slot
 
 
@@ -677,43 +750,45 @@ func _fill_combat_grid(grid: GridContainer, units: Array, enemy: bool) -> void:
 
 func _combat_cell(unit) -> Panel:
 	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(150, 118)
+	panel.custom_minimum_size = Vector2(148, 152)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if unit == null:
 		panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
 		return panel
 	var alive: bool = bool(unit.alive)
-	var bg: Color = _tier_color(str(unit.family), int(unit.get("tier", 1))) if not bool(unit.get("boss", false)) else Color("8e6bb0")
-	if str(unit.family) == "beast":
-		bg = Color("ef9a94")
-	if not alive:
-		bg = bg.darkened(0.35)
-	panel.add_theme_stylebox_override("panel", _style(bg, INK, 2))
+	panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, INK if alive else Color("b7b1a6"), 2))
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	panel.add_child(margin)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(box)
-	var name := _lbl(str(unit.name), 13, INK)
+	box.add_theme_constant_override("separation", 1)
+	margin.add_child(box)
+	var name := _lbl(str(unit.name), 14, INK if alive else MUTED)
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(name)
+	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 52.0, bool(unit.get("boss", false)))
+	if not alive:
+		token.modulate = Color(0.62, 0.62, 0.64)
+	var holder := CenterContainer.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.add_child(token)
+	box.add_child(holder)
 	var hp := int(unit.hp)
 	var mx := int(unit.max_hp)
-	var hp_l := _lbl("%d/%d%s" % [hp, mx, "" if alive else "  fainted"], 12, INK)
+	var hp_l := _lbl("%d/%d%s" % [hp, mx, "" if alive else "  fainted"], 14, INK)
 	hp_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(hp_l)
-	var bar_bg := ColorRect.new()
-	bar_bg.custom_minimum_size = Vector2(120, 8)
-	bar_bg.color = Color(0, 0, 0, 0.18)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(bar_bg)
-	var bar := ColorRect.new()
-	var ratio := 0.0 if mx <= 0 else clampf(float(hp) / float(mx), 0.0, 1.0)
-	bar.custom_minimum_size = Vector2(maxf(2.0, 120.0 * ratio), 8)
-	bar.color = GOOD if ratio > 0.35 else BAD
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar_bg.add_child(bar)
+	box.add_child(_hp_bar(hp, mx))
 	var atk := int(unit.atk) + int(unit.bonus_atk)
 	var arm := int(unit.armor) + int(unit.bonus_armor)
-	var stats := _lbl("%d ATK   %d ARM" % [atk, arm], 12, INK)
+	var stats := _lbl("%d ATK   %d ARM" % [atk, arm], 13, INK)
 	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(stats)
 	var bonus := ""
@@ -728,6 +803,29 @@ func _combat_cell(unit) -> Panel:
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(b)
 	return panel
+
+
+func _hp_bar(hp: int, mx: int) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.min_value = 0
+	bar.max_value = maxi(1, mx)
+	bar.value = hp
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(120, 16)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ratio := 0.0 if mx <= 0 else clampf(float(hp) / float(mx), 0.0, 1.0)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color("2a2622")
+	bg.set_corner_radius_all(3)
+	bg.set_content_margin_all(0)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = GOOD if ratio > 0.35 else BAD
+	fill.set_corner_radius_all(3)
+	fill.set_content_margin_all(0)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fill)
+	return bar
 
 
 func _toggle_speed() -> void:
@@ -767,27 +865,6 @@ func _tease(text: String, node_name: String) -> Button:
 	b.tooltip_text = "Tease only — not on the Meadow Circuit."
 	b.modulate = Color(1, 1, 1, 0.55)
 	return b
-
-
-func _family(family: String) -> Color:
-	match family:
-		"leaf":
-			return Color("7ecb96")
-		"ember":
-			return Color("f0a15a")
-		"puff":
-			return Color("d2b7ee")
-		_:
-			return Color("ef9a94")
-
-
-func _tier_color(family: String, tier: int) -> Color:
-	var base := _family(family)
-	if tier <= 1:
-		return base.lightened(0.12)
-	if tier == 2:
-		return base
-	return base.darkened(0.08)
 
 
 func _lbl(text: String, size: int, color: Color) -> Label:
