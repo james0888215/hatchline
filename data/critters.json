@@ -1,0 +1,36 @@
+{
+  "critters": [
+    {"id": "sproutling", "name": "Sproutling", "family": "leaf", "line": "sprout", "tier": 1, "evolves_to": "thornbud", "hp": 42, "atk": 7, "armor": 2, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": true, "blurb": "A shy shield-sprout."},
+    {"id": "thornbud", "name": "Thornbud", "family": "leaf", "line": "sprout", "tier": 2, "evolves_to": "elderthorn", "hp": 96, "atk": 15, "armor": 5, "regen": 0, "thorns": 3, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "The sprout grew teeth."},
+    {"id": "elderthorn", "name": "Elderthorn", "family": "leaf", "line": "sprout", "tier": 3, "evolves_to": "", "hp": 210, "atk": 32, "armor": 10, "regen": 0, "thorns": 7, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "A walking hedge-wall."},
+
+    {"id": "dewcap", "name": "Dewcap", "family": "leaf", "line": "dew", "tier": 1, "evolves_to": "canopykin", "hp": 46, "atk": 6, "armor": 3, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Soft cap, firm stance."},
+    {"id": "canopykin", "name": "Canopykin", "family": "leaf", "line": "dew", "tier": 2, "evolves_to": "", "hp": 106, "atk": 13, "armor": 7, "regen": 0, "thorns": 3, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Shade with a temper."},
+
+    {"id": "budmite", "name": "Budmite", "family": "leaf", "line": "bud", "tier": 1, "evolves_to": "mossguard", "hp": 38, "atk": 8, "armor": 1, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": true, "blurb": "A locked egg, until it isn't."},
+    {"id": "mossguard", "name": "Mossguard", "family": "leaf", "line": "bud", "tier": 2, "evolves_to": "grovewarden", "hp": 88, "atk": 17, "armor": 3, "regen": 0, "thorns": 3, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Velvet, then bramble."},
+    {"id": "grovewarden", "name": "Grovewarden", "family": "leaf", "line": "bud", "tier": 3, "evolves_to": "", "hp": 190, "atk": 36, "armor": 8, "regen": 0, "thorns": 8, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "The grove stands up."},
+
+    {"id": "sparkpup", "name": "Sparkpup", "family": "ember", "line": "spark", "tier": 1, "evolves_to": "foxfire", "hp": 28, "atk": 10, "armor": 0, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": true, "blurb": "Pocket foxfire."},
+    {"id": "foxfire", "name": "Foxfire", "family": "ember", "line": "spark", "tier": 2, "evolves_to": "infernox", "hp": 64, "atk": 22, "armor": 0, "regen": 0, "thorns": 0, "splash": 50, "burn": 0, "mend": "", "starter": false, "blurb": "The spark learned to splash."},
+    {"id": "infernox", "name": "Infernox", "family": "ember", "line": "spark", "tier": 3, "evolves_to": "", "hp": 140, "atk": 46, "armor": 1, "regen": 0, "thorns": 0, "splash": 70, "burn": 4, "mend": "", "starter": false, "blurb": "A polite little wildfire."},
+
+    {"id": "wicklet", "name": "Wicklet", "family": "ember", "line": "wick", "tier": 1, "evolves_to": "emberfox", "hp": 26, "atk": 11, "armor": 0, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "One bright idea."},
+    {"id": "emberfox", "name": "Emberfox", "family": "ember", "line": "wick", "tier": 2, "evolves_to": "pyrelord", "hp": 58, "atk": 24, "armor": 0, "regen": 0, "thorns": 0, "splash": 50, "burn": 0, "mend": "", "starter": false, "blurb": "Tail like a match."},
+    {"id": "pyrelord", "name": "Pyrelord", "family": "ember", "line": "wick", "tier": 3, "evolves_to": "", "hp": 128, "atk": 50, "armor": 0, "regen": 0, "thorns": 0, "splash": 70, "burn": 5, "mend": "", "starter": false, "blurb": "Bows, then burns."},
+
+    {"id": "cinderkit", "name": "Cinderkit", "family": "ember", "line": "cinder", "tier": 1, "evolves_to": "blazetail", "hp": 32, "atk": 9, "armor": 1, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Warm, not sorry."},
+    {"id": "blazetail", "name": "Blazetail", "family": "ember", "line": "cinder", "tier": 2, "evolves_to": "", "hp": 72, "atk": 19, "armor": 1, "regen": 0, "thorns": 0, "splash": 40, "burn": 0, "mend": "", "starter": false, "blurb": "The tail does the talking."},
+
+    {"id": "cottonwisp", "name": "Cottonwisp", "family": "puff", "line": "cotton", "tier": 1, "evolves_to": "cloudbud", "hp": 36, "atk": 5, "armor": 1, "regen": 2, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": true, "blurb": "A cloud with opinions."},
+    {"id": "cloudbud", "name": "Cloudbud", "family": "puff", "line": "cotton", "tier": 2, "evolves_to": "stormpillow", "hp": 82, "atk": 11, "armor": 2, "regen": 4, "thorns": 0, "splash": 0, "burn": 0, "mend": "one", "starter": false, "blurb": "Holds the line together."},
+    {"id": "stormpillow", "name": "Stormpillow", "family": "puff", "line": "cotton", "tier": 3, "evolves_to": "", "hp": 170, "atk": 24, "armor": 4, "regen": 8, "thorns": 0, "splash": 0, "burn": 0, "mend": "all", "starter": false, "blurb": "Naptime for everyone."},
+
+    {"id": "nimbusling", "name": "Nimbusling", "family": "puff", "line": "nimbus", "tier": 1, "evolves_to": "driftkin", "hp": 32, "atk": 6, "armor": 0, "regen": 2, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Drifts, then helps."},
+    {"id": "driftkin", "name": "Driftkin", "family": "puff", "line": "nimbus", "tier": 2, "evolves_to": "skyloom", "hp": 72, "atk": 13, "armor": 1, "regen": 4, "thorns": 0, "splash": 0, "burn": 0, "mend": "one", "starter": false, "blurb": "A kinder headwind."},
+    {"id": "skyloom", "name": "Skyloom", "family": "puff", "line": "nimbus", "tier": 3, "evolves_to": "", "hp": 150, "atk": 28, "armor": 2, "regen": 7, "thorns": 0, "splash": 0, "burn": 0, "mend": "all", "starter": false, "blurb": "Weaves the breeze back."},
+
+    {"id": "fluffball", "name": "Fluffball", "family": "puff", "line": "fluff", "tier": 1, "evolves_to": "cumulon", "hp": 40, "atk": 4, "armor": 1, "regen": 3, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Round, and against hurry."},
+    {"id": "cumulon", "name": "Cumulon", "family": "puff", "line": "fluff", "tier": 2, "evolves_to": "", "hp": 90, "atk": 9, "armor": 2, "regen": 5, "thorns": 0, "splash": 0, "burn": 0, "mend": "one", "starter": false, "blurb": "A sofa with regen."}
+  ]
+}

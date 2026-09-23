@@ -1,0 +1,60 @@
+{
+  "defs": {
+    "mite": {"name": "Meadow Mite", "family": "beast", "hp": 14, "atk": 3, "armor": 0, "regen": 0},
+    "mite_small": {"name": "Tired Mite", "family": "beast", "hp": 10, "atk": 2, "armor": 0, "regen": 0},
+    "barkling": {"name": "Barkling", "family": "leaf", "hp": 26, "atk": 5, "armor": 0, "regen": 0},
+    "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0},
+    "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 20, "atk": 6, "armor": 1, "regen": 0},
+    "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 120, "atk": 8, "armor": 2, "regen": 1, "boss": true},
+    "sprig": {"name": "Sprig Add", "family": "beast", "hp": 16, "atk": 5, "armor": 0, "regen": 0}
+  },
+  "encounters": {
+    "sparring_pups": {
+      "title": "Sparring",
+      "trait": "Tired pups — they barely nip.",
+      "units": [
+        {"def": "mite", "x": 0, "y": 0},
+        {"def": "mite_small", "x": 0, "y": 2}
+      ]
+    },
+    "wild_grass": {
+      "title": "Wild Grass",
+      "trait": "Barkhide — adjacent Leaf share armour. The middle is thickest.",
+      "units": [
+        {"def": "barkling", "x": 0, "y": 0},
+        {"def": "barkling", "x": 0, "y": 1},
+        {"def": "barkling", "x": 0, "y": 2}
+      ]
+    },
+    "elite_nest": {
+      "title": "Elite Nest",
+      "trait": "The warden hits harder. The purse is fatter.",
+      "units": [
+        {"def": "barkling", "x": 0, "y": 0},
+        {"def": "warden", "x": 1, "y": 1},
+        {"def": "barkling", "x": 0, "y": 2}
+      ]
+    },
+    "bramble_patch": {
+      "title": "Bramble Patch",
+      "trait": "A nippy pack. Buddy armour blunts the chip.",
+      "units": [
+        {"def": "bramble", "x": 0, "y": 0},
+        {"def": "bramble", "x": 0, "y": 1},
+        {"def": "bramble", "x": 1, "y": 1},
+        {"def": "bramble", "x": 0, "y": 2}
+      ]
+    },
+    "meadow_matron": {
+      "title": "Meadow Matron",
+      "trait": "She calls Sprig adds at two health marks. Splash clears them.",
+      "units": [
+        {"def": "matron", "x": 1, "y": 1}
+      ],
+      "script": [
+        {"id": "add_wave_1", "when_hp_below": 0.66, "summon": "sprig", "count": 2},
+        {"id": "add_wave_2", "when_hp_below": 0.33, "summon": "sprig", "count": 2}
+      ]
+    }
+  }
+}
