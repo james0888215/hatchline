@@ -37,6 +37,15 @@ SHEET_BOXES = {
 # Enemy pills on the combat mock. Same silhouette; either crop is fine.
 BEAST_BOX = ("05-combat-mock.png", "beast_t1", (1068, 168, 1210, 270))
 
+# Clarity sheet heroes. Boxes exclude captions. Interior white (the Z badge,
+# cream horns) is kept; only paper connected to the crop edge is dropped.
+CLARITY_BOXES = [
+    ("mite_meadow", (222, 154, 480, 263)),
+    ("mite_tired", (772, 182, 1020, 263)),
+    ("puff_cloudbud", (206, 493, 502, 566)),
+    ("puff_cumulon", (768, 458, 1012, 569)),
+]
+
 
 def key_paper(rgba: np.ndarray) -> np.ndarray:
     """Drop the paper background. Body fills stay (mint, peach, cream, rose)."""
@@ -63,10 +72,49 @@ def trim(rgba: np.ndarray, pad: int = 4) -> np.ndarray:
 
 
 def cut(path: Path, box: tuple) -> Image.Image:
-    im = Image.open(path).convert("RGBA")
-    x0, y0, x1, y1 = box
-    crop = np.array(im.crop((x0, y0, x1 + 1, y1 + 1)))
-    return Image.fromarray(trim(key_paper(crop)))
+	im = Image.open(path).convert("RGBA")
+	x0, y0, x1, y1 = box
+	crop = np.array(im.crop((x0, y0, x1 + 1, y1 + 1)))
+	return Image.fromarray(trim(key_paper(crop)))
+
+
+def _paper_like(rgb: np.ndarray) -> np.ndarray:
+	lum = rgb.mean(axis=2)
+	sat = rgb.max(axis=2) - rgb.min(axis=2)
+	return (lum > 200.0) & (sat < 22.0)
+
+
+def flood_key(rgba: np.ndarray) -> np.ndarray:
+	"""Remove sheet paper that touches the crop edge. Closed interiors stay."""
+	paper = _paper_like(rgba[:, :, :3].astype(np.float32))
+	h, w = paper.shape
+	seen = np.zeros((h, w), dtype=bool)
+	stack = []
+	for x in range(w):
+		stack.append((0, x))
+		stack.append((h - 1, x))
+	for y in range(h):
+		stack.append((y, 0))
+		stack.append((y, w - 1))
+	while stack:
+		y, x = stack.pop()
+		if y < 0 or x < 0 or y >= h or x >= w or seen[y, x] or not paper[y, x]:
+			continue
+		seen[y, x] = True
+		stack.append((y - 1, x))
+		stack.append((y + 1, x))
+		stack.append((y, x - 1))
+		stack.append((y, x + 1))
+	out = rgba.copy()
+	out[:, :, 3] = np.where(seen, 0, 255).astype(np.uint8)
+	return out
+
+
+def cut_clarity(path: Path, box: tuple) -> Image.Image:
+	im = Image.open(path).convert("RGBA")
+	x0, y0, x1, y1 = box
+	crop = np.array(im.crop((x0, y0, x1 + 1, y1 + 1)))
+	return Image.fromarray(trim(flood_key(crop)))
 
 
 def main() -> None:
@@ -82,6 +130,12 @@ def main() -> None:
     dest = OUT / f"{name}.png"
     img.save(dest)
     print(f"{dest.name} {img.size}")
+    clarity = LOCK / "06-token-clarity.png"
+    for name, box in CLARITY_BOXES:
+        img = cut_clarity(clarity, box)
+        dest = OUT / f"{name}.png"
+        img.save(dest)
+        print(f"{dest.name} {img.size}")
 
 
 if __name__ == "__main__":

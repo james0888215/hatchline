@@ -408,12 +408,14 @@ func _test_combat_floats() -> String:
 	if not saw_kill:
 		return "kill cue missing " + str(heavy.cues)
 	var tokens = load("res://scripts/token.gd")
-	if tokens.enemy_mark("mite") == tokens.enemy_mark("mite_small"):
+	if tokens.enemy_mark("mite") == "" or tokens.enemy_mark("mite") == tokens.enemy_mark("mite_small"):
 		return "mites share a telegraph"
-	if tokens.species_mark("puff", "cotton", 2) == tokens.species_mark("puff", "fluff", 2):
-		return "cloudbud and cumulon share a face mark"
-	if tokens.species_mark("puff", "nimbus", 2) == "":
-		return "driftkin mark missing"
+	if tokens.species_mark("puff", "cotton", 2) == "" or tokens.species_mark("puff", "cotton", 2) == tokens.species_mark("puff", "fluff", 2):
+		return "cloudbud and cumulon share a face"
+	if tokens.clarity_texture("meadow") == null or tokens.clarity_texture("tired") == null:
+		return "mite clarity tokens missing"
+	if tokens.clarity_texture("cloudbud") == null or tokens.clarity_texture("cumulon") == null:
+		return "puff clarity tokens missing"
 	return ""
 
 

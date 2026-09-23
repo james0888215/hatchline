@@ -30,6 +30,7 @@ Board-game tokens on cream paper. Soft pastel capsules. Thick outline. Almost ze
 3. `03-silhouettes-ember.png`  
 4. `04-silhouettes-puff.png`  
 5. `05-combat-mock.png`  
+6. `06-token-clarity.png` — enemy mite + Puff shop clarity  
 
 ## Archive
 
@@ -39,3 +40,22 @@ Board-game tokens on cream paper. Soft pastel capsules. Thick outline. Almost ze
 ## Out of lock
 
 Full production atlas, Reserve Park / Trail art, engine chrome polish beyond the mock.
+
+## Clarity add-ons (frame still locked)
+
+Supplemental sheet: `06-token-clarity.png` (Review PR #3 soft asks).
+
+### Enemy mites (wild-trait)
+
+Same rose family, **different silhouette + mark**:
+- **Meadow Mite** — full-height rose capsule + tall grass sprout on top  
+- **Tired Mite** — flatter / darker rose capsule + large white **Z** badge on the body  
+
+Tiny symbols alone are not enough; badge/sprout must survive 3×3 cell shrink. Later telegraphs follow the same rule: trait = silhouette or large badge, not a speck.
+
+### Puff shop collision
+
+- **Cloudbud (T2)** — lilac capsule + **side wing nubs** (wider)  
+- **Cumulon** — cream capsule + **top horns** (taller); no wings  
+
+Colour + silhouette both differ. Do not ship two Puff shop faces that share the same outline.
