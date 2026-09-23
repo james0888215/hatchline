@@ -1,0 +1,110 @@
+{
+  "id": "meadow_circuit",
+  "name": "Meadow Circuit",
+  "start": "sparring_1",
+  "meta": {
+    "starting_lines": ["sprout", "dew", "spark", "wick", "cinder", "cotton", "nimbus", "fluff"],
+    "unlock_line": "bud",
+    "unlock_name": "Budmite"
+  },
+  "ribbon": [
+    {"label": "Spar", "ids": ["sparring_1"]},
+    {"label": "Stall", "ids": ["shop_a"]},
+    {"label": "Grass", "ids": ["wild_1"]},
+    {"label": "Fork", "ids": ["fork_1"]},
+    {"label": "Cart / Nest", "ids": ["shop_b", "elite_1"]},
+    {"label": "Picnic", "ids": ["event_1"]},
+    {"label": "Bramble", "ids": ["wild_2"]},
+    {"label": "Last stall", "ids": ["preboss"]},
+    {"label": "Matron", "ids": ["boss"]}
+  ],
+  "nodes": [
+    {
+      "id": "sparring_1",
+      "type": "fight",
+      "title": "Sparring",
+      "encounter": "sparring_pups",
+      "reward": 4,
+      "next": ["shop_a"]
+    },
+    {
+      "id": "shop_a",
+      "type": "shop",
+      "title": "Meadow Stall",
+      "shop_tier": 1,
+      "teach_copy": true,
+      "next": ["wild_1"]
+    },
+    {
+      "id": "wild_1",
+      "type": "fight",
+      "title": "Wild Grass",
+      "encounter": "wild_grass",
+      "reward": 5,
+      "next": ["fork_1"]
+    },
+    {
+      "id": "fork_1",
+      "type": "fork",
+      "title": "Path Fork",
+      "prompt": "Sunny cart, or the elite nest?",
+      "choices": [
+        {"label": "Sunny Cart", "detail": "Shop — restock and merge", "next": "shop_b"},
+        {"label": "Elite Nest", "detail": "Harder fight, fatter purse", "next": "elite_1"}
+      ]
+    },
+    {
+      "id": "shop_b",
+      "type": "shop",
+      "title": "Sunny Cart",
+      "shop_tier": 2,
+      "teach_copy": false,
+      "next": ["event_1"]
+    },
+    {
+      "id": "elite_1",
+      "type": "fight",
+      "title": "Elite Nest",
+      "elite": true,
+      "encounter": "elite_nest",
+      "reward": 8,
+      "next": ["event_1"]
+    },
+    {
+      "id": "event_1",
+      "type": "event",
+      "title": "Kindly Picnic",
+      "prompt": "A blanket, a basket, one choice.",
+      "choices": [
+        {"label": "Free egg", "detail": "A random tier-1 joins your bench", "effect": "egg"},
+        {"label": "Tip jar", "detail": "+4 coins", "effect": "coins"}
+      ],
+      "next": ["wild_2"]
+    },
+    {
+      "id": "wild_2",
+      "type": "fight",
+      "title": "Bramble Patch",
+      "encounter": "bramble_patch",
+      "reward": 5,
+      "next": ["preboss"]
+    },
+    {
+      "id": "preboss",
+      "type": "shop",
+      "title": "Last Stall",
+      "shop_tier": 3,
+      "teach_copy": false,
+      "leave_label": "Face the Matron",
+      "next": ["boss"]
+    },
+    {
+      "id": "boss",
+      "type": "boss",
+      "title": "Meadow Matron",
+      "encounter": "meadow_matron",
+      "reward": 0,
+      "next": []
+    }
+  ]
+}

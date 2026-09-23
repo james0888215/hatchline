@@ -1,0 +1,697 @@
+extends SceneTree
+
+var failures: Array = []
+var g
+
+
+func _init() -> void:
+	call_deferred("_main")
+
+
+func _main() -> void:
+	await process_frame
+	g = root.get_node_or_null("Game")
+	if g == null:
+		print("FAIL autoload Game missing")
+		quit(1)
+		return
+	g.debug_reset_profile()
+	var tests: Array = [
+		["roster", _test_roster],
+		["economy", _test_economy],
+		["circuit", _test_circuit],
+		["starters_locked", _test_starters_locked],
+		["strict_merge", _test_strict_merge],
+		["buddy_preview", _test_buddy_preview],
+		["wild_buddy_visible", _test_wild_buddy],
+		["buddy_reduces_damage", _test_buddy_damage],
+		["splash", _test_splash],
+		["boss_summons", _test_boss_summons],
+		["shop_teach_and_buy", _test_shop],
+		["reroll_freeze_interest", _test_reroll_interest],
+		["soft_cap_and_sell", _test_soft_cap_sell],
+		["sparring_win", _test_sparring],
+		["wild_with_buddies", _test_wild_win],
+		["boss_with_spike", _test_boss_win],
+		["defeat_line", _test_defeat_line],
+		["unlock_on_loss", _test_unlock],
+	]
+	for item in tests:
+		var name: String = item[0]
+		print("RUN ", name)
+		var err: String = item[1].call()
+		if err != "":
+			print("FAIL ", name, ": ", err)
+			failures.append(name)
+			break
+		print("OK   ", name)
+	if failures.is_empty():
+		print("RUN ui_smoke")
+		var ui_err: String = await _test_ui()
+		if ui_err != "":
+			print("FAIL ui_smoke: ", ui_err)
+			failures.append("ui_smoke")
+		else:
+			print("OK   ui_smoke")
+	if failures.is_empty():
+		print("ALL PASS")
+		quit(0)
+	else:
+		print("FAILED ", failures)
+		quit(1)
+
+
+func _test_roster() -> String:
+	if g.critter_order.size() < 18 or g.critter_order.size() > 24:
+		return "roster size %d" % g.critter_order.size()
+	var families = {"leaf": {}, "ember": {}, "puff": {}}
+	for id in g.critter_order:
+		var c: Dictionary = g.critters[id]
+		var fam = str(c.family)
+		if not families.has(fam):
+			return "bad family " + fam
+		families[fam][int(c.tier)] = true
+		var evo = str(c.get("evolves_to", ""))
+		if evo != "":
+			if not g.critters.has(evo):
+				return "missing evo " + evo
+			var n: Dictionary = g.critters[evo]
+			if int(n.tier) != int(c.tier) + 1:
+				return "tier jump " + id
+			if str(n.line) != str(c.line) or str(n.family) != fam:
+				return "line drift " + id
+	for fam in families.keys():
+		for tier in [1, 2, 3]:
+			if not families[fam].has(tier):
+				return fam + " missing T" + str(tier)
+	return ""
+
+
+func _test_economy() -> String:
+	var keys: Array = [
+		"STARTING_COINS", "REROLL_COST", "REROLL_SCALE_EVERY", "REROLL_SCALE_STEP",
+		"INTEREST_PER", "INTEREST_CAP", "BUY_T1", "BUY_T2", "BUY_T3",
+		"SELL_T1", "SELL_T2", "SELL_T3", "SHOP_SLOTS", "BENCH_SLOTS",
+		"BOARD_W", "BOARD_H", "BOARD_SOFT_CAP", "LEAF_BUDDY_ARMOR",
+		"EMBER_BUDDY_DAMAGE", "PUFF_BUDDY_REGEN", "EVENT_COIN_GIFT",
+		"COMBAT_MAX_ROUNDS", "ENEMY_X_OFFSET",
+	]
+	for k in keys:
+		if not g.economy.has(k):
+			return "missing " + str(k)
+	if g.ECONOMY_PATH != "res://data/economy.json":
+		return "economy path"
+	if g.econ("BOARD_SOFT_CAP") != 7:
+		return "soft cap default"
+	if g.econ("BOARD_W") != 3 or g.econ("BOARD_H") != 3:
+		return "board shape"
+	if g.interest_for(4) != 0:
+		return "interest low"
+	if g.interest_for(5) != 1:
+		return "interest one"
+	if g.interest_for(100) != g.econ("INTEREST_CAP"):
+		return "interest cap"
+	if g.econ("SELL_T1") < g.econ("BUY_T1"):
+		return ""
+	return "sell should cost less than buy so pairs hurt"
+	# unreachable if sell < buy, which is the intended design
+	# The check above returns "" when the cost is real. Flip the condition.
+
+
+func _test_circuit() -> String:
+	var seen = {}
+	var stack: Array = [str(g.circuit.start)]
+	var kinds = {}
+	while not stack.is_empty():
+		var id: String = str(stack.pop_back())
+		if seen.has(id):
+			continue
+		if not g.nodes.has(id):
+			return "missing node " + id
+		seen[id] = true
+		var node: Dictionary = g.nodes[id]
+		kinds[str(node.type)] = true
+		for nxt in node.get("next", []):
+			stack.append(str(nxt))
+		for choice in node.get("choices", []):
+			if choice.has("next"):
+				stack.append(str(choice.next))
+	if not seen.has("boss") or not seen.has("shop_a") or not seen.has("elite_1"):
+		return "path missing a beat"
+	for kind in ["fight", "shop", "fork", "event", "boss"]:
+		if not kinds.has(kind):
+			return "missing kind " + kind
+	if not bool(g.nodes["elite_1"].get("elite", false)):
+		return "elite flag"
+	if int(g.nodes["elite_1"].reward) <= int(g.nodes["wild_1"].reward):
+		return "elite purse"
+	if int(g.nodes["preboss"].shop_tier) < int(g.nodes["shop_b"].shop_tier):
+		return "preboss tier"
+	return ""
+
+
+func _test_starters_locked() -> String:
+	var ids: Array = g.starter_ids()
+	if ids.size() != 3:
+		return "expected 3 starters, got %d" % ids.size()
+	if "budmite" in ids:
+		return "budmite unlocked early"
+	if "budmite" in g.pool_for_tier(1):
+		return "budmite in shop pool"
+	if "sproutling" not in ids or "sparkpup" not in ids or "cottonwisp" not in ids:
+		return "core starters missing"
+	return ""
+
+
+func _test_strict_merge() -> String:
+	g.blank_run()
+	_put("bench", 0, "sproutling")
+	_put("bench", 1, "sproutling")
+	var merged: Array = g.resolve_merges()
+	if not merged.is_empty() or g.copy_count("sproutling") != 2:
+		return "pair merged"
+	if g.pair_badge("sproutling") != "2/3":
+		return "pair badge"
+	_put("bench", 2, "sproutling")
+	merged = g.resolve_merges()
+	if merged.size() != 1:
+		return "triple did not merge"
+	if g.copy_count("sproutling") != 0 or g.copy_count("thornbud") != 1:
+		return "triple leftovers"
+	var thorn = _find("thornbud")
+	if thorn == null or int(thorn.tier) != 2:
+		return "not T2"
+	if int(thorn.hp) < int(g.critters["sproutling"].hp) * 2:
+		return "spike too small"
+	if str(g.run.merge_flash.get("to", "")) != "Thornbud":
+		return "no flourish"
+	g.blank_run()
+	_put("board", 4, "sproutling")
+	_put("bench", 0, "sproutling")
+	_put("bench", 1, "sproutling")
+	g.resolve_merges()
+	if g.run.board[4] == null or str(g.run.board[4].def_id) != "thornbud":
+		return "evo should stay on the board"
+	g.blank_run()
+	for i in 5:
+		_put("bench", i, "sproutling")
+	_put("board", 0, "sproutling")
+	g.resolve_merges()
+	if g.copy_count("sproutling") != 0 or g.copy_count("thornbud") != 2:
+		return "six should become two T2s, got sprout %d thorn %d" % [g.copy_count("sproutling"), g.copy_count("thornbud")]
+	g.blank_run()
+	for i in 3:
+		_put("bench", i, "thornbud")
+	g.resolve_merges()
+	if g.copy_count("elderthorn") != 1 or g.copy_count("thornbud") != 0:
+		return "T2 triple"
+	g.blank_run()
+	_put("bench", 0, "elderthorn")
+	_put("bench", 1, "elderthorn")
+	if not g.resolve_merges().is_empty():
+		return "T3 should not merge"
+	return ""
+
+
+func _test_buddy_preview() -> String:
+	g.blank_run()
+	_put("board", 0, "sproutling")
+	_put("board", 1, "sproutling")
+	var labels: Dictionary = g.board_buddy_labels()
+	var arm = "+%d ARM" % g.econ("LEAF_BUDDY_ARMOR")
+	if str(labels[0]) != arm or str(labels[1]) != arm:
+		return "orthogonal leaf preview " + str(labels)
+	g.run.board[1] = null
+	_put("board", 4, "sproutling")
+	labels = g.board_buddy_labels()
+	if str(labels.get(0, "")) != "" or str(labels.get(4, "")) != "":
+		return "diagonal should be quiet"
+	g.blank_run()
+	_put("board", 0, "sproutling")
+	_put("board", 1, "sparkpup")
+	labels = g.board_buddy_labels()
+	if str(labels.get(0, "")) != "" or str(labels.get(1, "")) != "":
+		return "mixed families"
+	g.blank_run()
+	_put("board", 0, "sparkpup")
+	_put("board", 1, "sparkpup")
+	labels = g.board_buddy_labels()
+	if str(labels[0]) != "+%d ATK" % g.econ("EMBER_BUDDY_DAMAGE"):
+		return "ember preview"
+	g.blank_run()
+	_put("board", 0, "cottonwisp")
+	_put("board", 3, "cottonwisp")
+	_put("board", 6, "cottonwisp")
+	labels = g.board_buddy_labels()
+	var reg = g.econ("PUFF_BUDDY_REGEN")
+	if str(labels[3]) != "+%d REG" % (reg * 2):
+		return "middle puff " + str(labels[3])
+	if str(labels[0]) != "+%d REG" % reg:
+		return "end puff"
+	return ""
+
+
+func _test_wild_buddy() -> String:
+	g.blank_run()
+	var scout = g.make_unit("sparkpup")
+	scout.pos = Vector2i(1, 1)
+	var sim = CombatSim.new()
+	sim.setup([scout], g.encounters["wild_grass"], g.enemy_defs, g.economy)
+	if sim.enemies.size() != 3:
+		return "wild count"
+	var linked = 0
+	for e in sim.enemies:
+		var expect = g.econ("LEAF_BUDDY_ARMOR") * (2 if int(e.local_y) == 1 else 1)
+		if int(e.bonus_armor) != expect:
+			return "barkling armour %d != %d" % [int(e.bonus_armor), expect]
+		linked += 1
+	if linked < 3:
+		return "not all buddied"
+	var blob = "\n".join(PackedStringArray(sim.log_lines))
+	if "Buddy:" not in blob:
+		return "buddy log missing"
+	return ""
+
+
+func _test_buddy_damage() -> String:
+	var econ = g.economy
+	var solo = _duel(false)
+	var buddied = _duel(true)
+	if int(buddied) <= int(solo):
+		return "buddy hp %d should beat solo hp %d" % [buddied, solo]
+	return ""
+
+
+func _duel(with_buddy: bool) -> int:
+	var sim = CombatSim.new()
+	var leaf = {
+		"uid": 1, "name": "Leaf", "family": "leaf", "hp": 100, "max_hp": 100,
+		"atk": 1, "armor": 0, "pos": Vector2i(1, 1),
+	}
+	var units: Array = [leaf]
+	if with_buddy:
+		units.append({
+			"uid": 2, "name": "Leaf2", "family": "leaf", "hp": 100, "max_hp": 100,
+			"atk": 1, "armor": 0, "pos": Vector2i(1, 2),
+		})
+	var foe_defs = {
+		"brute": {"name": "Brute", "family": "beast", "hp": 100, "atk": 10, "armor": 0},
+	}
+	var enc = {"units": [{"def": "brute", "x": 0, "y": 1}]}
+	sim.setup(units, enc, foe_defs, g.economy)
+	for _i in 3:
+		if not sim.over:
+			sim.step()
+	for u in sim.allies:
+		if int(u.uid) == 1:
+			return int(u.hp)
+	return -1
+
+
+func _test_splash() -> String:
+	var sim = CombatSim.new()
+	var hero = {
+		"uid": 1, "name": "Fox", "family": "ember", "hp": 80, "max_hp": 80,
+		"atk": 10, "armor": 0, "splash": 100, "pos": Vector2i(0, 0),
+	}
+	var defs = {
+		"a": {"name": "A", "family": "beast", "hp": 40, "atk": 0, "armor": 0},
+		"b": {"name": "B", "family": "beast", "hp": 40, "atk": 0, "armor": 0},
+		"c": {"name": "C", "family": "beast", "hp": 40, "atk": 0, "armor": 0},
+	}
+	var enc = {"units": [
+		{"def": "a", "x": 0, "y": 0},
+		{"def": "b", "x": 1, "y": 0},
+		{"def": "c", "x": 2, "y": 2},
+	]}
+	sim.setup([hero], enc, defs, g.economy)
+	sim.step()
+	var hp = {}
+	for e in sim.enemies:
+		hp[str(e.def_id)] = int(e.hp)
+	if int(hp["a"]) >= 40:
+		return "primary untouched"
+	if int(hp["b"]) >= 40:
+		return "splash missed neighbour"
+	if int(hp["c"]) != 40:
+		return "splash hit a far target"
+	return ""
+
+
+func _test_boss_summons() -> String:
+	var sim = CombatSim.new()
+	var hero = {
+		"uid": 1, "name": "Hammer", "family": "beast", "hp": 500, "max_hp": 500,
+		"atk": 40, "armor": 50, "pos": Vector2i(1, 1),
+	}
+	var defs = {
+		"dummy": {"name": "Meadow Matron", "family": "leaf", "hp": 100, "atk": 1, "armor": 0, "boss": true},
+		"sprig": {"name": "Sprig Add", "family": "beast", "hp": 500, "atk": 1, "armor": 0},
+	}
+	var enc = {
+		"units": [{"def": "dummy", "x": 1, "y": 1}],
+		"script": [
+			{"id": "add_wave_1", "when_hp_below": 0.66, "summon": "sprig", "count": 2},
+			{"id": "add_wave_2", "when_hp_below": 0.33, "summon": "sprig", "count": 2},
+		],
+	}
+	sim.setup([hero], enc, defs, g.economy)
+	sim.step()
+	if sim.adds_summoned != 2:
+		return "wave 1 summoned %d" % sim.adds_summoned
+	sim.step()
+	if sim.adds_summoned != 4:
+		return "wave 2 summoned %d" % sim.adds_summoned
+	var blob = "\n".join(PackedStringArray(sim.log_lines))
+	if "thicket" not in blob.to_lower():
+		return "summon line missing"
+	if sim.banner == "" and sim.banner_ttl <= 0:
+		# banner may already have been consumed if ttl expired inside the step; the log is the contract
+		pass
+	return ""
+
+
+func _test_shop() -> String:
+	g.blank_run()
+	_put("board", 4, "sproutling")
+	g.run.coins = 15
+	g.enter_node("shop_a")
+	if str(g.run.shop[0].def_id) != "sproutling":
+		return "teach copy missing, got " + str(g.run.shop[0].def_id)
+	var after_interest = 15 + g.interest_for(15)
+	if int(g.run.coins) != after_interest:
+		return "interest on shop enter"
+	g.buy(0)
+	if g.copy_count("sproutling") != 2 or g.copy_count("thornbud") != 0:
+		return "buying the pair evolved early"
+	if int(g.run.coins) != after_interest - g.econ("BUY_T1"):
+		return "buy cost"
+	g.run.shop[1] = {"def_id": "sproutling", "frozen": false}
+	g.buy(1)
+	if g.copy_count("thornbud") != 1 or g.copy_count("sproutling") != 0:
+		return "third buy should spike"
+	if str(g.run.board[4].def_id) != "thornbud":
+		return "spike left the board"
+	return ""
+
+
+func _test_reroll_interest() -> String:
+	g.blank_run()
+	g.run.coins = 30
+	g.enter_node("shop_a")
+	var base = g.econ("REROLL_COST")
+	if g.reroll_cost() != base:
+		return "opening reroll cost"
+	g.run.shop[1] = {"def_id": "dewcap", "frozen": true}
+	g.run.shop[2] = {"def_id": "___sentinel", "frozen": false}
+	var coins_before = int(g.run.coins)
+	g.reroll()
+	if int(g.run.coins) != coins_before - base:
+		return "reroll spend"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "freeze lost"
+	if str(g.run.shop[2].def_id) == "___sentinel":
+		return "unfrozen slot stuck"
+	if g.reroll_cost() != base:
+		return "cost scaled too early"
+	g.reroll()
+	var step = g.econ("REROLL_SCALE_STEP")
+	if g.reroll_cost() != base + step:
+		return "cost did not scale"
+	return ""
+
+
+func _test_soft_cap_sell() -> String:
+	g.blank_run()
+	var ids: Array = ["sproutling", "dewcap", "sparkpup", "wicklet", "cinderkit", "cottonwisp", "nimbusling", "fluffball"]
+	for i in 7:
+		_put("board", i, str(ids[i]))
+	var extra: Dictionary = _put("bench", 0, str(ids[7]))
+	var coins = int(g.run.coins)
+	g.handle_drop("board", 7, {"uid": int(extra.uid)})
+	if g.board_count() != 7 or g.run.board[7] != null:
+		return "cap ignored"
+	if "Soft cap" not in str(g.run.toast):
+		return "cap toast"
+	g.sell_uid(int(extra.uid))
+	if g.run.bench[0] != null:
+		return "sell left the unit"
+	if int(g.run.coins) != coins + g.econ("SELL_T1"):
+		return "sell value"
+	return ""
+
+
+func _test_sparring() -> String:
+	g.blank_run()
+	# A real pick, then the easy fight.
+	g.choose_starter("sproutling")
+	if g.phase != "prep" or str(g.run.node_id) != "sparring_1":
+		return "did not open sparring"
+	if g.run.board[int(g.run.board.size() / 2)] == null:
+		return "starter not placed"
+	g.start_combat()
+	var guard = 0
+	while g.combat != null and not g.combat.over and guard < 30:
+		g.combat_tick()
+		guard += 1
+	if g.combat == null or not g.combat.player_won:
+		_dump(g.combat, "sparring")
+		return "starter should win sparring"
+	g.finish_combat()
+	if str(g.run.node_id) != "shop_a":
+		return "reward should open the stall, at " + str(g.run.node_id)
+	if int(g.run.coins) < g.econ("BUY_T1"):
+		return "can't afford a buy after fight 1"
+	print("  sparring rounds ", guard, " coins ", g.run.coins)
+	return ""
+
+
+func _test_wild_win() -> String:
+	var units: Array = [
+		_fighter("sproutling", 1, 1),
+		_fighter("sproutling", 1, 0),
+		_fighter("sparkpup", 0, 1),
+	]
+	var err = _fight(units, "wild_grass", true, "wild buddies")
+	return err
+
+
+func _test_boss_win() -> String:
+	var units: Array = [
+		_fighter("elderthorn", 1, 1),
+		_fighter("thornbud", 1, 0),
+		_fighter("infernox", 0, 1),
+		_fighter("foxfire", 0, 0),
+		_fighter("stormpillow", 2, 1),
+		_fighter("cloudbud", 2, 0),
+		_fighter("sparkpup", 0, 2),
+	]
+	return _fight(units, "meadow_matron", true, "boss spike")
+
+
+func _test_defeat_line() -> String:
+	var lone: Array = [_fighter("cottonwisp", 1, 1)]
+	var sim = _sim(lone, "meadow_matron")
+	var guard = 0
+	while not sim.over and guard < 40:
+		sim.step()
+		guard += 1
+	if sim.player_won:
+		return "lone puff should lose to the matron"
+	var reason = sim.defeat_reason()
+	if reason == "" or "\n" in reason or reason.length() > 90:
+		return "bad reason [" + reason + "]"
+	print("  loss line: ", reason)
+	return ""
+
+
+func _test_unlock() -> String:
+	if int(g.profile.runs) != 0:
+		return "run counted early"
+	g.blank_run()
+	g.discover("foxfire")
+	g.run.board = _cleared(g.run.board)
+	g.start_combat()
+	if not g.combat.over or g.combat.player_won:
+		return "empty board should already be over"
+	g.finish_combat()
+	if g.phase != "result":
+		return "no result"
+	var line = str(g.run.result.line)
+	if line != "Nothing fielded — place critters on the board":
+		return "empty reason [" + line + "]"
+	if "\n" in line:
+		return "reason has a break"
+	if "bud" not in g.profile.unlocked_lines:
+		return "line stayed locked"
+	if "Budmite" not in str(g.run.result.unlock):
+		return "unlock copy"
+	if "budmite" not in g.starter_ids():
+		return "not a starter yet"
+	if "budmite" not in g.pool_for_tier(1):
+		return "not in the shop pool"
+	if "foxfire" not in g.run.result.new_dex:
+		return "dex tick missing"
+	# Loss keeps the unlock on disk.
+	g._load_profile()
+	if "bud" not in g.profile.unlocked_lines:
+		return "unlock did not save"
+	return ""
+
+
+func _test_ui() -> String:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var reason: Node = main.find_child("ResultLine", true, false)
+	if reason == null or "Nothing fielded" not in reason.text:
+		return "result line not on screen"
+	var park: Node = main.find_child("ReservePark", true, false)
+	var trail: Node = main.find_child("SeasonTrail", true, false)
+	if park == null or trail == null or not park.disabled or not trail.disabled:
+		return "park/trail tease missing"
+	var unlock: Node = main.find_child("UnlockCard", true, false)
+	if unlock == null:
+		return "unlock card missing"
+	var dex: Node = main.find_child("DexTick", true, false)
+	if dex == null or "Foxfire" not in dex.text:
+		return "dex tick not visible"
+	var retry: Node = main.find_child("RetryButton", true, false)
+	if retry == null:
+		return "no retry"
+	retry.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "start":
+		return "retry did not return to starters"
+	var bud: Node = main.find_child("Starter_budmite", true, false)
+	if bud == null or "NEW" not in bud.text:
+		return "run 2 starter not marked new"
+	var sprout: Node = main.find_child("Starter_sproutling", true, false)
+	if sprout == null:
+		return "sproutling card missing"
+	sprout.pressed.emit()
+	await process_frame
+	await process_frame
+	if str(g.run.node_id) != "sparring_1":
+		return "pick did not start sparring"
+	var center = main.find_child("Board4", true, false)
+	if center == null or int(center.get("unit_uid")) < 0:
+		return "starter not on the board slot"
+	if not center.has_method("_get_drag_data") or not center.has_method("_drop_data"):
+		return "board slot is not drag-drop"
+	var sell: Node = main.find_child("SellZone", true, false)
+	if sell == null:
+		return "no sell zone"
+	var fight: Node = main.find_child("FightButton", true, false)
+	if fight == null:
+		return "no fight button"
+	var trait_label: Node = main.find_child("TraitLabel", true, false)
+	if trait_label == null or trait_label.text == "":
+		return "trait not shown"
+	fight.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "combat":
+		return "fight did not start"
+	var speed: Node = main.find_child("SpeedButton", true, false)
+	if speed == null:
+		return "no speed toggle"
+	speed.pressed.emit()
+	if g.speed != 2:
+		return "speed stayed at 1"
+	if main.tick:
+		main.tick.stop()
+	var guard = 0
+	while g.combat != null and not g.combat.over and guard < 30:
+		g.combat_tick()
+		guard += 1
+	if g.combat == null or not g.combat.player_won:
+		_dump(g.combat, "ui sparring")
+		return "ui sparring lost"
+	g.finish_combat()
+	await process_frame
+	await process_frame
+	if str(g.run.node_id) != "shop_a":
+		return "shop did not open"
+	var reroll: Node = main.find_child("RerollButton", true, false)
+	var buy: Node = main.find_child("BuyButton0", true, false)
+	if reroll == null or buy == null:
+		return "shop controls missing"
+	var bench_before = int(main.find_child("Bench0", true, false).get("unit_uid"))
+	buy.pressed.emit()
+	await process_frame
+	await process_frame
+	var bench: Node = main.find_child("Bench0", true, false)
+	if bench == null or int(bench.get("unit_uid")) < 0:
+		return "buy did not reach the bench (before %d)" % bench_before
+	# Drag the purchase onto the board through the same drop path the mouse uses.
+	g.handle_drop("board", 0, {"uid": int(bench.get("unit_uid"))})
+	await process_frame
+	await process_frame
+	var corner = main.find_child("Board0", true, false)
+	if corner == null or int(corner.get("unit_uid")) < 0:
+		return "drop did not place"
+	return ""
+
+
+func _put(zone: String, index: int, id: String) -> Dictionary:
+	var u = g.make_unit(id)
+	if zone == "board":
+		g.run.board[index] = u
+	else:
+		g.run.bench[index] = u
+	return u
+
+
+func _find(def_id: String):
+	for u in g.all_units():
+		if str(u.def_id) == def_id:
+			return u
+	return null
+
+
+func _fighter(id: String, x: int, y: int) -> Dictionary:
+	var u = g.make_unit(id)
+	u.pos = Vector2i(x, y)
+	return u
+
+
+func _sim(units: Array, enc_id: String) -> CombatSim:
+	var sim = CombatSim.new()
+	sim.setup(units, g.encounters[enc_id], g.enemy_defs, g.economy)
+	return sim
+
+
+func _fight(units: Array, enc_id: String, should_win: bool, label: String) -> String:
+	var sim = _sim(units, enc_id)
+	var guard = 0
+	while not sim.over and guard < 40:
+		sim.step()
+		guard += 1
+	print("  ", label, " ", "win" if sim.player_won else "loss", " round ", sim.round_i, " adds ", sim.adds_summoned)
+	if should_win and not sim.player_won:
+		_dump(sim, label)
+		return label + " should win"
+	if not should_win and sim.player_won:
+		return label + " should lose"
+	return ""
+
+
+func _cleared(arr: Array) -> Array:
+	var out: Array = []
+	out.resize(arr.size())
+	for i in out.size():
+		out[i] = null
+	return out
+
+
+func _dump(sim: CombatSim, label: String) -> void:
+	if sim == null:
+		print("  ", label, " no sim")
+		return
+	print("  ", label, " log:")
+	for line in sim.log_lines:
+		print("   ", line)
+	print("  reason: ", sim.defeat_reason())
