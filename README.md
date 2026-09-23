@@ -28,10 +28,10 @@ godot --headless --path . -s res://tests/logic_test.gd
 ## How to play
 
 1. Pick one of three tier-1 starters. The line under them is the whole tutorial: three of a kind evolve, and same-family neighbours help.
-2. **Sparring** is an easy fight. Press Fight and watch the two boards. Hits and heals float on the cells. Speed toggles between ×1 and ×2. The combat log stays folded until you open it.
+2. **Sparring** is an easy fight. Press Fight and watch the two boards. A hit squashes the capsule, a kill pops, and the number floats on the cell. Speed toggles between ×1 and ×2. The combat log stays folded until you open it.
 3. The **Meadow Stall** opens next. Buy, Freeze, Reroll, and sell. A copy of something you already own is in the first slot.
-4. Two copies do nothing. They show **2/3**. The third copy evolves on the spot — the new tier pops, then the banner marks the power spike.
-5. Drag critters between the bench and the board. Drag onto the red bar to sell. The board holds at most **7** critters.
+4. Two copies do nothing. They show **2/3**. The third copy evolves on the spot — the cell pops, and a one-line banner names the new tier.
+5. Drag critters between the bench and the board. Drag onto the red Sell tag to sell. The board holds at most **7** critters.
 6. Put matching families on orthogonal neighbours (not diagonals). A glow links them. The tile still shows the bonus: Leaf armour, Ember damage, Puff regen.
 7. Clear fights to earn coins. The path is Sparring → Stall → Wild Grass → a fork (shop or elite) → a picnic → Bramble → the last stall → the Meadow Matron.
 8. The Matron calls Sprig adds twice. An Ember evolve splashes them.

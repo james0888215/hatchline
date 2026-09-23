@@ -390,6 +390,30 @@ func _test_combat_floats() -> String:
 			hit = true
 	if not hit:
 		return "hit float missing " + str(sim.floats)
+	var wind := false
+	var cue_hit := false
+	for entry in sim.cues:
+		if str(entry.kind) == "windup" and int(entry.uid) > 0:
+			wind = true
+		if str(entry.kind) == "hit":
+			cue_hit = true
+	if not wind or not cue_hit:
+		return "juice cues missing " + str(sim.cues)
+	var heavy = _sim([_fighter("thornbud", 1, 1)], "sparring_pups")
+	heavy.step()
+	var saw_kill := false
+	for entry in heavy.cues:
+		if str(entry.kind) == "kill":
+			saw_kill = true
+	if not saw_kill:
+		return "kill cue missing " + str(heavy.cues)
+	var tokens = load("res://scripts/token.gd")
+	if tokens.enemy_mark("mite") == tokens.enemy_mark("mite_small"):
+		return "mites share a telegraph"
+	if tokens.species_mark("puff", "cotton", 2) == tokens.species_mark("puff", "fluff", 2):
+		return "cloudbud and cumulon share a face mark"
+	if tokens.species_mark("puff", "nimbus", 2) == "":
+		return "driftkin mark missing"
 	return ""
 
 

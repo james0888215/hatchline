@@ -11,8 +11,9 @@ var timed_out: bool = false
 var banner: String = ""
 var banner_ttl: int = 0
 var adds_summoned: int = 0
-# Presentation only. Each step replaces this with {uid, text, kind} for hits and heals.
+# Presentation only. Each step replaces these with hit/heal numbers and motion cues.
 var floats: Array = []
+var cues: Array = []
 var economy: Dictionary = {}
 var enemy_defs: Dictionary = {}
 var script_steps: Array = []
@@ -75,6 +76,8 @@ func setup(player_units: Array, encounter: Dictionary, defs: Dictionary, econ: D
 	banner = ""
 	banner_ttl = 0
 	adds_summoned = 0
+	floats = []
+	cues = []
 	fired = {}
 	economy = econ
 	enemy_defs = defs
@@ -133,6 +136,7 @@ func step() -> void:
 	if over:
 		return
 	floats = []
+	cues = []
 	if banner_ttl > 0:
 		banner_ttl -= 1
 		if banner_ttl == 0:
@@ -311,6 +315,7 @@ func _attack(actor: Dictionary) -> void:
 	var target: Variant = _nearest(actor, foes)
 	if target == null:
 		return
+	cues.append({"uid": int(actor.uid), "kind": "windup"})
 	var dmg := maxi(1, _total_atk(actor) - _total_arm(target))
 	_hurt(target, dmg)
 	_count_damage(actor, dmg)
@@ -369,9 +374,11 @@ func _hurt(u: Dictionary, amount: int) -> void:
 	u.hp = int(u.hp) - amount
 	if amount != 0:
 		floats.append({"uid": int(u.uid), "text": "-%d" % amount, "kind": "hit"})
+		cues.append({"uid": int(u.uid), "kind": "hit"})
 	if int(u.hp) <= 0:
 		u.hp = 0
 		u.alive = false
+		cues.append({"uid": int(u.uid), "kind": "kill"})
 		_log("%s faints" % u.name)
 
 

@@ -3,6 +3,7 @@ extends Control
 const SLOT := preload("res://scripts/slot.gd")
 const TOKENS := preload("res://scripts/token.gd")
 const LINKS := preload("res://scripts/buddy_overlay.gd")
+const MARK := preload("res://scripts/mark.gd")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -22,6 +23,7 @@ var dex_open := false
 var _ending := false
 var log_open := false
 var punch_uid := -1
+var focus_uid := -1
 
 var ally_grid: GridContainer
 var enemy_grid: GridContainer
@@ -261,7 +263,7 @@ func _dex_grid() -> GridContainer:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 6)
 		if known:
-			row.add_child(TOKENS.make(str(c.family), int(c.tier), 40.0))
+			row.add_child(TOKENS.make(str(c.family), int(c.tier), 40.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))))
 		var lab := _lbl("✓ %s  T%d" % [c.name, int(c.tier)] if known else "???", 13, INK if known else MUTED)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(lab)
@@ -271,6 +273,7 @@ func _dex_grid() -> GridContainer:
 
 
 func _build_prep(page: VBoxContainer) -> void:
+	Game.note_sell_once()
 	page.add_child(_run_header())
 	var flash := _flash_bar()
 	if flash:
@@ -477,9 +480,9 @@ func _run_header() -> VBoxContainer:
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(gap)
-	top.add_child(_coin_pill(str(int(Game.run.coins))))
+	top.add_child(_coin_pill(str(int(Game.run.coins)), "coin"))
 	top.add_child(_lbl("+", 20, INK))
-	top.add_child(_coin_pill("+%d" % Game.interest_for(int(Game.run.coins))))
+	top.add_child(_coin_pill("+%d" % Game.interest_for(int(Game.run.coins)), "interest"))
 	box.add_child(top)
 	box.add_child(_ribbon())
 	return box
@@ -505,9 +508,10 @@ func _path_pill() -> Panel:
 	return p
 
 
-func _coin_pill(amount: String) -> Panel:
+func _coin_pill(amount: String, kind: String) -> Panel:
 	var p := Panel.new()
-	p.custom_minimum_size = Vector2(108, 44)
+	var wide := kind == "interest"
+	p.custom_minimum_size = Vector2(138 if wide else 108, 44)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var s := _style(Color("fffdf8"), INK, 2)
 	s.set_content_margin_all(4)
@@ -517,9 +521,15 @@ func _coin_pill(amount: String) -> Panel:
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
-	var mark := _lbl("◎", 18, INK)
-	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var mark := Control.new()
+	mark.set_script(MARK)
+	mark.set("kind", kind)
+	mark.custom_minimum_size = Vector2(22, 22)
 	row.add_child(mark)
+	if wide:
+		var tag := _lbl("INT", 12, MUTED)
+		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(tag)
 	var lab := _lbl(amount, 20, INK)
 	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lab)
@@ -555,27 +565,17 @@ func _flash_bar() -> Control:
 	var f: Dictionary = Game.run.merge_flash
 	var panel := Panel.new()
 	panel.name = "MergeFlash"
-	panel.custom_minimum_size = Vector2(0, 72)
+	panel.custom_minimum_size = Vector2(0, 40)
 	panel.add_theme_stylebox_override("panel", _style(Color("fff6e4"), GOLD, 3))
-	var row := HBoxContainer.new()
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 12)
-	row.add_child(TOKENS.make(str(f.family), int(f.tier), 52.0))
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var title := "TRIPLE    %s    →    %s" % [f.from, f.to]
+	var title := "TRIPLE   %s   →   %s   ·   T%d" % [f.from, f.to, int(f.tier)]
 	if int(f.count) > 1:
-		title = "TRIPLE ×%d    %s    →    %s" % [int(f.count), f.from, f.to]
-	var a := _lbl(title, 22, INK)
+		title = "TRIPLE ×%d   %s   →   %s   ·   T%d" % [int(f.count), f.from, f.to, int(f.tier)]
+	var a := _lbl(title, 20, INK)
 	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var b := _lbl("Tier %d power spike     %s" % [int(f.tier), f.stats], 14, INK)
-	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(a)
-	box.add_child(b)
-	row.add_child(box)
-	panel.add_child(row)
+	a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	a.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(a)
 	return panel
 
 
@@ -668,7 +668,7 @@ func _shop_card(i: int) -> Panel:
 		row.add_child(_lbl("Empty", 14, MUTED))
 		return panel
 	var c: Dictionary = Game.critters[def_id]
-	row.add_child(TOKENS.make(str(c.family), int(c.tier), 64.0))
+	row.add_child(TOKENS.make(str(c.family), int(c.tier), 64.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -722,7 +722,7 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 			var holder := CenterContainer.new()
 			holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			holder.add_child(TOKENS.make(str(d.family), 1, 46.0, boss))
+			holder.add_child(TOKENS.make(str(d.family), 1, 46.0, boss, TOKENS.enemy_mark(str(spec.def))))
 			box.add_child(holder)
 			var lab := _lbl(str(d.name), 11, INK)
 			lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -738,11 +738,20 @@ func _sell_zone() -> Control:
 	var slot := _make_slot("sell", -1, null, 420, 64)
 	slot.name = "SellZone"
 	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var lab := _lbl("Drag a critter here to sell    ·    T1 returns %d    T2 returns %d    T3 returns %d" % [
-		Game.econ("SELL_T1"), Game.econ("SELL_T2"), Game.econ("SELL_T3")
-	], 14, BAD)
-	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.get_node("Margin/SlotBody").add_child(lab)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+	var tag := Control.new()
+	tag.set_script(MARK)
+	tag.set("kind", "sell")
+	tag.custom_minimum_size = Vector2(28, 22)
+	row.add_child(tag)
+	var lab := _lbl("Sell", 16, BAD)
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(lab)
+	slot.get_node("Margin/SlotBody").add_child(row)
 	return slot
 
 
@@ -775,6 +784,7 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 			width = 2
 		slot.set("preview_family", str(unit.family))
 		slot.set("preview_tier", int(unit.tier))
+		slot.set("preview_mark", TOKENS.species_mark(str(unit.family), str(unit.get("line", "")), int(unit.tier)))
 	slot.add_theme_stylebox_override("panel", _style(bg, border, width))
 	var margin := MarginContainer.new()
 	margin.name = "Margin"
@@ -794,14 +804,24 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 		return slot
 	var wide: bool = w > h + 40.0
 	var flashing: bool = Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1))
-	var token := TOKENS.make(str(unit.family), int(unit.tier), 52.0 if wide else 46.0)
+	var species := TOKENS.species_mark(str(unit.family), str(unit.get("line", "")), int(unit.tier))
+	var token := TOKENS.make(str(unit.family), int(unit.tier), 52.0 if wide else 46.0, false, species)
 	var pop := _pop_wrap(token)
 	if flashing:
 		_play_merge_pop(pop)
 		_pulse_slot(slot)
+	var hp := int(unit.max_hp)
+	var atk := int(unit.atk)
+	var arm := int(unit.armor)
+	var reg := int(unit.get("regen", 0))
+	var full := "%d HP   %d ATK   %d ARM" % [hp, atk, arm]
+	if reg > 0:
+		full += "   %d REG" % reg
+	var quiet := zone == "board" and Game.board_count() >= 5
+	slot.tooltip_text = "%s\n%d HP\n%d ATK\n%d ARM\n%d REG" % [unit.name, hp, atk, arm, reg]
 	var name := _lbl("%s  T%d" % [unit.name, int(unit.tier)], 14, INK)
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var meta := _lbl("%d HP   %d ATK   %d ARM" % [int(unit.max_hp), int(unit.atk), int(unit.armor)], 13, INK)
+	var meta := _lbl(("%d HP" % hp) if quiet else full, 13, INK)
 	meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -809,6 +829,35 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 	texts.add_theme_constant_override("separation", 0)
 	texts.add_child(name)
 	texts.add_child(meta)
+	if quiet:
+		var extra_bits := "%d ATK   %d ARM" % [atk, arm]
+		if reg > 0:
+			extra_bits += "   %d REG" % reg
+		var extra := _lbl(extra_bits, 12, INK)
+		extra.name = "QuietDetail"
+		extra.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var uid := int(unit.uid)
+		extra.visible = focus_uid == uid
+		texts.add_child(extra)
+		slot.mouse_entered.connect(func() -> void:
+			if is_instance_valid(extra):
+				extra.visible = true
+		)
+		slot.mouse_exited.connect(func() -> void:
+			if is_instance_valid(extra):
+				extra.visible = focus_uid == uid
+		)
+		slot.gui_input.connect(func(ev: InputEvent) -> void:
+			if not (ev is InputEventMouseButton):
+				return
+			var mb := ev as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and is_instance_valid(extra):
+				if focus_uid == uid:
+					focus_uid = -1
+				else:
+					focus_uid = uid
+				extra.visible = focus_uid == uid
+		)
 	var badge := Game.pair_badge(str(unit.def_id))
 	if badge != "":
 		var pip_row := HBoxContainer.new()
@@ -987,17 +1036,24 @@ func _sync_combat() -> void:
 	var enemy_cells := _combat_entries(sim.enemies, true)
 	var ally_adj := _adjacency(ally_cells)
 	var enemy_adj := _adjacency(enemy_cells)
-	_fill_combat_grid(ally_grid, ally_cells, ally_adj.glow)
-	_fill_combat_grid(enemy_grid, enemy_cells, enemy_adj.glow)
+	var popping := {}
+	for entry in sim.cues:
+		if str(entry.kind) == "kill":
+			popping[int(entry.uid)] = true
+	_fill_combat_grid(ally_grid, ally_cells, ally_adj.glow, popping)
+	_fill_combat_grid(enemy_grid, enemy_cells, enemy_adj.glow, popping)
 	if ally_links:
 		ally_links.arm(ally_adj.pairs)
 	if enemy_links:
 		enemy_links.arm(enemy_adj.pairs)
 	_refresh_punch(sim)
 	var pending: Array = sim.floats.duplicate()
+	var pending_cues: Array = sim.cues.duplicate()
 	sim.floats.clear()
+	sim.cues.clear()
 	_spawn_floats(ally_floats, ally_grid, ally_cells, pending)
 	_spawn_floats(enemy_floats, enemy_grid, enemy_cells, pending)
+	_play_cues(pending_cues)
 
 
 func _retitle_ally_board() -> void:
@@ -1019,15 +1075,15 @@ func _your_board_title() -> String:
 	return "YOUR " + str(Game.combat.allies[0].name).to_upper()
 
 
-func _fill_combat_grid(grid: GridContainer, cells: Array, glow: Dictionary) -> void:
+func _fill_combat_grid(grid: GridContainer, cells: Array, glow: Dictionary, popping: Dictionary) -> void:
 	for c in grid.get_children():
 		grid.remove_child(c)
 		c.free()
 	for i in cells.size():
-		grid.add_child(_combat_cell(cells[i], glow.get(i, Color(0, 0, 0, 0))))
+		grid.add_child(_combat_cell(cells[i], glow.get(i, Color(0, 0, 0, 0)), popping))
 
 
-func _combat_cell(unit, glow: Color) -> Panel:
+func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	var panel := Panel.new()
 	panel.custom_minimum_size = Vector2(150, 128)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1065,17 +1121,21 @@ func _combat_cell(unit, glow: Color) -> Panel:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 1)
 	margin.add_child(box)
+	panel.set_meta("uid", int(unit.uid))
 	var name := _lbl(_short_name(str(unit.name)), 14, INK if alive else MUTED)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(name)
-	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 72.0, bool(unit.get("boss", false)))
-	if not alive:
+	var fresh_kill: bool = popping.has(int(unit.uid))
+	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 72.0, bool(unit.get("boss", false)), TOKENS.unit_mark(unit))
+	token.name = "Capsule"
+	if not alive and not fresh_kill:
 		token.modulate = Color(0.62, 0.62, 0.64)
+	var juice := _juice_wrap(token)
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	holder.add_child(token)
+	holder.add_child(juice)
 	box.add_child(holder)
 	box.add_child(_hp_bar(int(unit.hp), int(unit.max_hp)))
 	return panel
@@ -1127,8 +1187,13 @@ func _refresh_punch(sim: CombatSim) -> void:
 func _spawn_floats(layer: Control, grid: GridContainer, cells: Array, pending: Array) -> void:
 	if layer == null:
 		return
+	var shown := pending
+	var life := 0.62
+	if Game.speed >= 2:
+		shown = _loud_floats(pending)
+		life = 0.30
 	var stacks := {}
-	for entry in pending:
+	for entry in shown:
 		var uid := int(entry.uid)
 		var index := -1
 		for i in cells.size():
@@ -1141,7 +1206,40 @@ func _spawn_floats(layer: Control, grid: GridContainer, cells: Array, pending: A
 		var n := int(stacks.get(uid, 0))
 		stacks[uid] = n + 1
 		var color := HIT if str(entry.kind) == "hit" else HEAL
-		call_deferred("_place_float", layer, grid.get_child(index), str(entry.text), color, n, 0)
+		call_deferred("_place_float", layer, grid.get_child(index), str(entry.text), color, n, 0, life)
+
+
+func _loud_floats(pending: Array) -> Array:
+	var best_hit := {}
+	var best_heal := {}
+	var hit_mag := {}
+	var heal_mag := {}
+	for entry in pending:
+		var uid := int(entry.uid)
+		var mag := _float_mag(str(entry.text))
+		if str(entry.kind) == "heal":
+			if not heal_mag.has(uid) or mag > int(heal_mag[uid]):
+				heal_mag[uid] = mag
+				best_heal[uid] = entry
+		else:
+			if not hit_mag.has(uid) or mag > int(hit_mag[uid]):
+				hit_mag[uid] = mag
+				best_hit[uid] = entry
+	var out: Array = []
+	for uid in best_hit.keys():
+		out.append(best_hit[uid])
+	for uid in best_heal.keys():
+		out.append(best_heal[uid])
+	return out
+
+
+func _float_mag(text: String) -> int:
+	var t := text.strip_edges()
+	if t.begins_with("+") or t.begins_with("-"):
+		t = t.substr(1)
+	if t.is_valid_int():
+		return int(t)
+	return 0
 
 
 func _hp_bar(hp: int, mx: int) -> ProgressBar:
@@ -1167,11 +1265,11 @@ func _hp_bar(hp: int, mx: int) -> ProgressBar:
 	return bar
 
 
-func _place_float(layer: Control, cell: Control, text: String, color: Color, slot_i: int, tries: int) -> void:
+func _place_float(layer: Control, cell: Control, text: String, color: Color, slot_i: int, tries: int, duration: float = 0.62) -> void:
 	if not is_instance_valid(layer) or not is_instance_valid(cell):
 		return
 	if cell.size.x < 2.0 and tries < 6:
-		call_deferred("_place_float", layer, cell, text, color, slot_i, tries + 1)
+		call_deferred("_place_float", layer, cell, text, color, slot_i, tries + 1, duration)
 		return
 	var wrap := Control.new()
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1185,9 +1283,10 @@ func _place_float(layer: Control, cell: Control, text: String, color: Color, slo
 	layer.add_child(wrap)
 	var origin := layer.get_global_transform().affine_inverse() * (cell.global_position + Vector2(cell.size.x * 0.52 + slot_i * 26.0, cell.size.y * 0.28))
 	wrap.position = origin
+	var rise := 28.0 if duration < 0.5 else 40.0
 	var tw := wrap.create_tween()
-	tw.tween_property(wrap, "position:y", origin.y - 40.0, 0.62)
-	tw.parallel().tween_property(wrap, "modulate:a", 0.0, 0.5).set_delay(0.2)
+	tw.tween_property(wrap, "position:y", origin.y - rise, duration)
+	tw.parallel().tween_property(wrap, "modulate:a", 0.0, duration * 0.75).set_delay(duration * 0.28)
 	tw.finished.connect(wrap.queue_free)
 
 
@@ -1255,7 +1354,9 @@ func _teach_line() -> String:
 		return ""
 	match str(Game.run.node_id):
 		"sparring_1":
-			return "Same-family neighbours glow. Watch the boards."
+			if Game.board_buddy_pairs().is_empty():
+				return "Same-family neighbours glow. Watch the boards."
+			return ""
 		"shop_a":
 			return "Freeze keeps a card. A pair shows 2/3. Interest is +1 per 5 saved."
 		_:
@@ -1281,6 +1382,77 @@ func _chip(text: String, bg: Color) -> Panel:
 	l.set_anchors_preset(Control.PRESET_FULL_RECT)
 	p.add_child(l)
 	return p
+
+
+func _juice_wrap(token: Control) -> Control:
+	var juice := Control.new()
+	juice.name = "Juice"
+	var sz := token.custom_minimum_size
+	juice.custom_minimum_size = sz
+	juice.size = sz
+	juice.pivot_offset = sz * 0.5
+	juice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	token.position = Vector2.ZERO
+	juice.add_child(token)
+	juice.resized.connect(func() -> void:
+		juice.pivot_offset = juice.size * 0.5
+	)
+	return juice
+
+
+func _play_cues(cues: Array) -> void:
+	var by_uid := {}
+	for entry in cues:
+		var uid := int(entry.uid)
+		if not by_uid.has(uid):
+			by_uid[uid] = []
+		by_uid[uid].append(str(entry.kind))
+	var k := 0.7 if Game.speed >= 2 else 1.0
+	for uid in by_uid.keys():
+		var node := _find_juice(int(uid))
+		if node == null:
+			continue
+		_tween_juice(node, by_uid[uid], k)
+
+
+func _find_juice(uid: int) -> Control:
+	for grid in [ally_grid, enemy_grid]:
+		if grid == null:
+			continue
+		for cell in grid.get_children():
+			if cell.has_meta("uid") and int(cell.get_meta("uid")) == uid:
+				var found: Node = cell.find_child("Juice", true, false)
+				if found is Control:
+					return found
+	return null
+
+
+func _tween_juice(node: Control, kinds: Array, k: float) -> void:
+	var has_kill := false
+	for kind in kinds:
+		if str(kind) == "kill":
+			has_kill = true
+	var tw := node.create_tween()
+	for kind in kinds:
+		var step := str(kind)
+		if step == "windup":
+			tw.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			tw.tween_property(node, "scale", Vector2.ONE, 0.04 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		elif step == "hit":
+			if has_kill:
+				continue
+			tw.tween_property(node, "scale", Vector2(1.26, 0.66), 0.05 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.72, 0.68), 0.05 * k)
+			tw.tween_interval(0.10 * k)
+			tw.tween_property(node, "scale", Vector2.ONE, 0.10 * k)
+			tw.parallel().tween_property(node, "modulate", Color.WHITE, 0.10 * k)
+		elif step == "kill":
+			tw.tween_property(node, "scale", Vector2(1.16, 0.76), 0.04 * k)
+			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.72, 0.68), 0.04 * k)
+			tw.tween_property(node, "scale", Vector2(1.34, 1.34), 0.06 * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(0.12 * k)
+			tw.tween_property(node, "scale", Vector2(0.70, 0.70), 0.16 * k)
+			tw.parallel().tween_property(node, "modulate", Color(0.62, 0.62, 0.64, 0.4), 0.16 * k)
 
 
 func _pop_wrap(token: Control) -> Control:
