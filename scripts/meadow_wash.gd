@@ -1,6 +1,9 @@
 extends Control
 
-# Sheet 11. Soft sage hills and a ground plane. No illustrated scenery.
+# Sheet 11 greybox. Soft sage hills and a ground plane. No illustrated scenery.
+# Proto owns z-order only. Hatch Art skins opacity, hill shape, gutters, and
+# path chrome from ART_WASH_DIR when those sheets land. Do not retune this
+# palette or invent a new hill recipe here.
 
 const CREAM := Color("f6f1e7")
 const WASH := Color("e4eedc")
@@ -17,12 +20,18 @@ var ground_from_bottom: float = 18.0
 var wash_mode: String = "fill"
 # Hills stay behind Bench, Board, shop, path chrome, and labels.
 const Z_BEHIND := -8
+# TODO(Hatch Art): softened underlay tiles, chrome-safe gutters, path cream
+# pills, and the solid active-node mark (no glow). Empty until those files
+# arrive. Skin _draw from this folder; leave Z_BEHIND alone.
+const ART_WASH_DIR := "res://art/style-lock/meadow-wash-v2"
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = true
 	z_index = Z_BEHIND
+	if DirAccess.open(ART_WASH_DIR) != null:
+		push_warning("Meadow wash sheets found in %s. Skin opacity and shape from those files; the greybox palette stays until then." % ART_WASH_DIR)
 
 
 func _draw() -> void:

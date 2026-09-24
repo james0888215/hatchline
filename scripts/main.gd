@@ -749,7 +749,8 @@ func _path_node(label: String, state: String) -> VBoxContainer:
 	dot.add_theme_stylebox_override("panel", s)
 	hold.add_child(dot)
 	box.add_child(hold)
-	# Solid chip, dark ink. Green-on-sage and any outline read as a fuzzy glow.
+	# Readable stand-in until Hatch Art's cream pills and solid active-node
+	# mark land in MeadowWash.ART_WASH_DIR. Dark ink, no outline, no glow.
 	var plate := Panel.new()
 	plate.name = "PathChip"
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
