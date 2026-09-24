@@ -4,13 +4,13 @@ extends TextureRect
 # Idle loops on one shared clock. A combat squash or lunge holds the
 # current frame. A merge one-shot returns to idle, unless the triple
 # evolved into another species — that settles on the capsule.
-# Frames are starters-v1.1-subtle (6 idle, 6 merge). No scale tween
-# rides on top of those frames.
+# Frames are starters-v1.2-face (6 idle, 6 merge). Blink is idle_03.
+# ±1px eye drift is idle_01 and idle_04. No scale tween rides on those frames.
 
 const IDLE_FPS := 5.0
 const MERGE_FPS := 9.0
 const MERGE_SETTLE := 0.065
-# One tick each: neutral, micro-up, peak-up, neutral, micro-down, peak-down.
+# One tick each: neutral, micro-up, peak-up, blink, micro-down, peak-down.
 # At 5 FPS the sheet loops once every 1.2s. Peaks are already ≤4% in the art.
 const IDLE_HOLD_STEPS: Array = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 

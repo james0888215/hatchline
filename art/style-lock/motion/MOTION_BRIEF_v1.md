@@ -20,12 +20,24 @@ Style lock stays: flat capsules, thick charcoal, two-dot faces. Motion is silhou
 | Ease | ease-in-out; **hold 1–2 ticks** on neutral | hard step |
 | Pivot | **bottom-center** (feet plant; mark floats with crown) | — |
 | Secondary | leaf/flame/cloud bumps move **≤ half** body delta | lock to body |
+| **Face idle** | **allowed** on two-dot faces — see below | none (felt lifeless on #22) |
+
+**Face idle (James playtest #22 — more life without pixel-punch):**  
+Keep the **flat pastel capsule** lock. Do **not** redraw critters as pixel art to match pack scenery.
+
+| Face cue | Lock | Notes |
+|----------|------|-------|
+| Blink | **1–2 frames** lids/squint (dots briefly shorten or close) | Cosy; not anime multi-blink flurry |
+| Eye drift | optional **±1 px** on both dots together | Shared with body clock; never opposite-eye wander |
+| Timing | same **shared idle clock** as body §1 | Face peaks on quiet frames (neutral / micro), not only on squash extremes |
+| Intensity | face reads as life; body still owns ≤±4% silhouette | No brow, mouth, or cheek squash |
 
 **Idle curve (6-frame example):**  
 `00 neutral → 01 micro-up → 02 peak-up → 03 neutral → 04 micro-down → 05 peak-down → loop`  
-Peaks use the ≤4% table. No frame should snap back to identical `00` without a settle.
+Peaks use the ≤4% table. No frame should snap back to identical `00` without a settle.  
+Example face placement: blink on `03` (or `00`/`03` alternating loops); ±1px drift on `01`/`04` only.
 
-**Do not:** ping-pong only two extreme poses; scale from center (looks floaty); different timing per starter on the same screen (keep one shared clock).
+**Do not:** ping-pong only two extreme poses; scale from center (looks floaty); different timing per starter on the same screen (keep one shared clock); pixel-punch / dither / outline-noise the capsule to “match” NN pack art; cartoon eye pops larger than ±1px.
 
 ---
 
@@ -74,7 +86,7 @@ Layer order: texture/sky → clouds → hills → grass → **trio wordmark** �
 
 ## 5) Done-when (James playtest)
 
-- Starters on title + starter-pick feel **alive but calm** for 10+ seconds without noticing the loop pop.
+- Starters on title + starter-pick feel **alive but calm** for 10+ seconds without noticing the loop pop (body ≤±4% **plus** quiet blink / ±1px eye drift).
 - Board 3×3: idle still reads family mark; no “jelly” fight with role badges.
 - Merge pop reads once as delight, then quiet.
 - Menu: sky/clouds move; buttons don’t dance.
@@ -83,8 +95,10 @@ Layer order: texture/sky → clouds → hills → grass → **trio wordmark** �
 
 ## 6) Next owners
 
-- **Assets:** starters-v1.1-subtle is the live set in `art/starters/` (idle `00–05`, merge `00–05`).
-- **Proto:** idle plays at 5 FPS and merge at 9 FPS, on one shared clock, with no scale tween on the frames. Title cloud/hill drift still waits on separate layers.
-- **Art:** re-pass QC sheets; Update this brief only if James asks louder/softer.
+- **Assets:** starters-v1.2-face is the live set in `art/starters/` (idle `00–05`, blink on `03`, ±1px drift on `01`/`04`, merge `00–05`). The drop stays at `assets/drops/starters-v1.2-face/`. `assets/drops/starters-v1.1-subtle/` is the archive.
+- **Proto:** idle plays at 5 FPS and merge at 9 FPS, on one shared clock, pivot bottom-center, with no scale tween on the frames. Title cloud drift is already wired on the pack stack.
+- **Art:** cream-grade scenic layers, trio wordmarks, and starter-select cards shipped with this drop. Title layout stays the locked pack stack.
+
+**Changelog:** 2026-09-24 — §1 face idle added after James #22 playtest (Review P0). Style lock stays flat capsules. Proto wired v1.2-face the same day.
 
 *End MOTION_BRIEF_v1.*

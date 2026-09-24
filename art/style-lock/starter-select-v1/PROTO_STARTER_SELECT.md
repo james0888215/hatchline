@@ -72,7 +72,7 @@ If hills fight readability, lift cards into calm sky / upper mid — cream cards
 |------|--------|--------|
 | Cloud drift | **8–16 px** horizontal | **12–20 s** loop (same as title if scenic shared) |
 | Far / mid hills | optional parallax | slower than clouds (title recipe) |
-| **Selected starter idle** | subtle breathe **≤ ±4%** squash/stretch | from Assets `starters-v1.1-subtle` once Proto wires; shared clock; pivot bottom-center (`motion/MOTION_BRIEF_v1.md`) |
+| **Selected starter idle** | subtle breathe **≤ ±4%** plus blink / ±1px drift | live `art/starters/` (`starters-v1.2-face`); shared clock; pivot bottom-center (`motion/MOTION_BRIEF_v1.md`) |
 | Unselected starters | static OK, or same idle quieter | keep one clock if both idle |
 | Hover card | scale **1.00 → 1.03** | soft ease ~100–120 ms |
 | Confirm hover | scale **1.03** | soft ease ~100–120 ms (title button language) |
@@ -103,7 +103,7 @@ Same stack as title — credit **edermunizz** if sky reused. CraftPix flowers **
 - [ ] Three cream cards mid band ~32–55%; portraits from style-lock helpers
 - [ ] One selected state (thicker outline / glow / slight scale) — no noisy badge
 - [ ] Back + Confirm cream pills ~70–78% from top; `v0.playtest-1` BR
-- [ ] Selected idle ≤±4% from `starters-v1.1-subtle`; hover card 1.03; Confirm hover 1.03
+- [ ] Selected idle ≤±4% from `starters-v1.2-face`; hover card 1.03; Confirm hover 1.03
 - [ ] Cloud drift same as title; credit **edermunizz**
 - [ ] No new creatures; no Hatch-dex; title layout stays locked
 
