@@ -58,7 +58,9 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_apply_theme()
 	var bg := ColorRect.new()
+	bg.name = "Paper"
 	bg.color = CREAM
+	bg.z_index = MEADOW.Z_BEHIND - 1
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -113,11 +115,10 @@ func _rebuild() -> void:
 		tick.stop()
 		_ending = false
 	_clear_host()
-	if Game.phase == "prep" or Game.phase == "combat":
+	if Game.phase == "start" or Game.phase == "prep" or Game.phase == "combat":
 		var back = MEADOW.new()
-		back.name = "MeadowWash"
-		back.wash_mode = "lower"
-		back.ground_from_bottom = -1.0
+		back.name = "MenuWash" if Game.phase == "start" else "MeadowWash"
+		back.sheet = "menu" if Game.phase == "start" else "battle"
 		back.set_anchors_preset(Control.PRESET_FULL_RECT)
 		host.add_child(back)
 	var root := MarginContainer.new()
@@ -289,8 +290,6 @@ func _build_start(page: VBoxContainer) -> void:
 	else:
 		var band = MEADOW.new()
 		band.name = "StarterMeadow"
-		band.wash_mode = "fill"
-		band.ground_from_bottom = 74.0
 		band.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		band.custom_minimum_size = Vector2(0, 280)
@@ -731,43 +730,48 @@ func _path_node(label: String, state: String) -> VBoxContainer:
 	box.add_theme_constant_override("separation", 1)
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hold.custom_minimum_size = Vector2(0, 16)
-	var dot := Panel.new()
-	var d := 16 if state == "now" else 11
-	dot.custom_minimum_size = Vector2(d, d)
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hold.custom_minimum_size = Vector2(0, 18)
+	var mark := TextureRect.new()
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	if state == "now":
-		dot.name = "PathNow"
-	var bg := GOLD if state == "now" else (GOOD if state == "past" else Color("f7f3ea"))
-	var border := INK if state == "now" else (GOOD if state == "past" else MUTED)
-	var s := StyleBoxFlat.new()
-	s.bg_color = bg
-	s.border_color = border
-	s.set_border_width_all(2)
-	s.set_corner_radius_all(d)
-	s.set_content_margin_all(0)
-	dot.add_theme_stylebox_override("panel", s)
-	hold.add_child(dot)
+		mark.name = "PathNow"
+		mark.texture = _atlas(MEADOW.ACTIVE_TEX, MEADOW.ACTIVE_REGION)
+		mark.custom_minimum_size = Vector2(18, 18)
+	else:
+		mark.texture = MEADOW.RING_TEX
+		mark.custom_minimum_size = Vector2(14, 14)
+	hold.add_child(mark)
 	box.add_child(hold)
-	# Readable stand-in until Hatch Art's cream pills and solid active-node
-	# mark land in MeadowWash.ART_WASH_DIR. Dark ink, no outline, no glow.
-	var plate := Panel.new()
+	var plate := Control.new()
 	plate.name = "PathChip"
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var chip := _style(Color("fffdf8"), Color("fffdf8"), 0)
-	chip.set_content_margin_all(1)
-	chip.set_corner_radius_all(3)
-	plate.add_theme_stylebox_override("panel", chip)
-	var quiet := Color("3a342c")
-	var lab := _lbl(label, 13 if state == "now" else 12, INK if state == "now" else quiet)
+	var pill := NinePatchRect.new()
+	pill.name = "PathPill"
+	pill.texture = MEADOW.PILL_TEX
+	pill.region_rect = MEADOW.PILL_REGION
+	pill.patch_margin_left = 16
+	pill.patch_margin_right = 16
+	pill.patch_margin_top = 8
+	pill.patch_margin_bottom = 8
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	plate.add_child(pill)
+	var ink := MEADOW.INK_ACTIVE if state == "now" else MEADOW.INK_QUIET
+	var lab := _lbl(label, 13 if state == "now" else 12, ink)
 	lab.name = "PathStep"
 	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lab.add_theme_constant_override("outline_size", 0)
 	lab.add_theme_constant_override("shadow_offset_x", 0)
 	lab.add_theme_constant_override("shadow_offset_y", 0)
 	lab.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
 	lab.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+	lab.set_anchors_preset(Control.PRESET_FULL_RECT)
 	plate.add_child(lab)
+	var text_size := lab.get_minimum_size()
+	plate.custom_minimum_size = Vector2(text_size.x + 14.0, 20.0)
 	box.add_child(plate)
 	return box
 
@@ -835,8 +839,6 @@ func _board_column() -> VBoxContainer:
 func _meadow_nest(inner: Control, ground_gap: float, node_name: String) -> Control:
 	var wash = MEADOW.new()
 	wash.name = node_name
-	wash.wash_mode = "fill"
-	wash.ground_from_bottom = 3.0
 	wash.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wash.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var pad := MarginContainer.new()
@@ -1191,8 +1193,6 @@ func _combat_frame(title: String, stage: Control, ranks: PackedStringArray) -> V
 	frame.add_theme_stylebox_override("panel", frame_style)
 	var wash = MEADOW.new()
 	wash.name = "FightMeadow"
-	wash.wash_mode = "fill"
-	wash.ground_from_bottom = 4.0
 	wash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	frame.add_child(wash)
 	var margin := MarginContainer.new()
@@ -1231,6 +1231,13 @@ func _round_badge() -> Panel:
 
 func _lift_over_wash(node: Control) -> void:
 	node.z_index = -MEADOW.Z_BEHIND
+
+
+func _atlas(tex: Texture2D, region: Rect2) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = tex
+	atlas.region = region
+	return atlas
 
 
 func _has_post_fight_log() -> bool:

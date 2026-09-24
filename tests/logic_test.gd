@@ -1114,6 +1114,14 @@ func _test_ui() -> String:
 	var menu_wash: Node = main.find_child("StarterMeadow", true, false)
 	if menu_wash == null or int(menu_wash.z_index) >= 0:
 		return "menu wash should sit behind the starters"
+	var menu_under: Node = main.find_child("MenuWash", true, false)
+	if menu_under == null or int(menu_under.z_index) >= 0:
+		return "menu underlay should sit behind the page"
+	var menu_tex: Node = menu_under.find_child("WashUnderlay", true, false)
+	if menu_tex == null or not (menu_tex is TextureRect):
+		return "menu underlay texture missing"
+	if "wash-underlay-menu" not in str((menu_tex as TextureRect).texture.resource_path):
+		return "menu underlay is not the menu sheet"
 	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
 		var card: Node = main.find_child("Starter_%s" % starter_id, true, false)
 		if card == null:
@@ -1136,6 +1144,16 @@ func _test_ui() -> String:
 		return "prep wash should sit behind the page"
 	if board_wash == null or int(board_wash.z_index) >= 0:
 		return "board wash should sit behind the slots"
+	var page_tex: Node = page_wash.find_child("WashUnderlay", true, false)
+	if page_tex == null or not (page_tex is TextureRect):
+		return "prep wash is not an underlay"
+	if "wash-underlay-battle" not in str((page_tex as TextureRect).texture.resource_path):
+		return "prep wash is not the battle sheet"
+	if board_wash.find_child("WashUnderlay", true, false) != null:
+		return "board stacked a second wash"
+	var path_now: Node = main.find_child("PathNow", true, false)
+	if path_now == null or not (path_now is TextureRect):
+		return "active path node is not the solid token"
 	var grass_step: Node = null
 	for step in main.find_children("PathStep", "Label", true, false):
 		if str(step.text) == "Grass":
