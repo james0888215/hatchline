@@ -25,14 +25,17 @@ const PICK_ACTION_ANCHOR := 0.74
 const PICK_SELECTED_SCALE := 1.045
 const PICK_HOVER_SEC := 0.11
 const TITLE_VERSION := "v0.playtest-1"
+# MOTION_BRIEF §3. One-way travel, then the loop returns.
+# Clouds stay inside 8–16 px over 12–20 s. Hills stay ≤4 px over ~20 s.
+# Starter frame idle is the shared clock only — no scale tween on those frames.
 const CLOUD_DRIFT_PX := 12.0
 const CLOUD_DRIFT_SEC := 16.0
-const FAR_DRIFT_PX := 6.0
-const FAR_DRIFT_SEC := 32.0
-const MID_DRIFT_PX := 8.0
-const MID_DRIFT_SEC := 24.0
-const NEAR_DRIFT_PX := 3.0
-const NEAR_DRIFT_SEC := 40.0
+const FAR_DRIFT_PX := 2.0
+const FAR_DRIFT_SEC := 20.0
+const MID_DRIFT_PX := 3.0
+const MID_DRIFT_SEC := 20.0
+const NEAR_DRIFT_PX := 2.0
+const NEAR_DRIFT_SEC := 20.0
 const PAPER_SOFT_ALPHA := 0.10
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
@@ -413,16 +416,7 @@ func _build_starter_pick(page: VBoxContainer) -> void:
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(stage)
-	var wash := ColorRect.new()
-	wash.name = "StarterMeadow"
-	wash.color = Color(TITLE_CHARCOAL.r, TITLE_CHARCOAL.g, TITLE_CHARCOAL.b, 0.12)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wash.z_index = -2
-	wash.anchor_left = 0.0
-	wash.anchor_right = 1.0
-	wash.anchor_top = 0.30
-	wash.anchor_bottom = 0.58
-	stage.add_child(wash)
+	# Cream cards sit on the cream-graded pack. No charcoal card-band under them.
 	var header := _lbl("Pick your starter", 34, Color("5A8F6A"))
 	header.name = "StarterPrompt"
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

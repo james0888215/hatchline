@@ -709,10 +709,17 @@ func _test_sparring() -> String:
 	var purse := int(g.run.coins)
 	var price: int = g.econ("BUY_T1")
 	var slots: int = g.econ("SHOP_SLOTS")
+	var before_interest: int = g.econ("STARTING_COINS") + int(g.nodes["sparring_1"].reward)
+	var purse_expect: int = before_interest + int(g.interest_for(before_interest))
+	if purse != purse_expect:
+		return "first stall purse %d != %d" % [purse, purse_expect]
 	if purse < price:
 		return "can't afford a buy after fight 1"
-	if purse >= price * 2:
-		return "first stall still buys a triple, purse %d" % purse
+	# Two T1 buys finish the starter into a triple. Three would clear most of the stall.
+	if purse < price * 2:
+		return "first stall cannot reach a starter triple, purse %d" % purse
+	if purse >= price * 3:
+		return "first stall buys three offers, purse %d" % purse
 	if purse >= slots * price:
 		return "first stall buys every offer"
 	if purse - price < g.econ("REROLL_COST"):
@@ -1809,9 +1816,8 @@ func _starter_pick_err(main: Node) -> String:
 		return "play is still on the starter pick"
 	if main.find_child("TitleMenu", true, false) != null:
 		return "starter pick is still the title"
-	var menu_wash := main.find_child("StarterMeadow", true, false)
-	if menu_wash == null or int(menu_wash.z_index) >= 0:
-		return "menu wash should sit behind the starters"
+	if main.find_child("StarterMeadow", true, false) != null:
+		return "card-band wash should be gone"
 	var stage_err := _title_stage_err(main)
 	if stage_err != "":
 		return stage_err
@@ -1899,6 +1905,12 @@ func _title_stage_err(main: Node) -> String:
 	var drift_sec := float(clouds.get_meta("drift_sec"))
 	if drift < 8.0 or drift > 16.0 or drift_sec < 12.0 or drift_sec > 20.0:
 		return "cloud drift is out of band"
+	for hill_name in ["TitleFar", "TitleMid", "TitleNear"]:
+		var hill := main.find_child(hill_name, true, false)
+		var hill_px := float(hill.get_meta("drift_px"))
+		var hill_sec := float(hill.get_meta("drift_sec"))
+		if hill_px < 0.0 or hill_px > 4.0 or hill_sec < 18.0 or hill_sec > 22.0:
+			return "%s drift is outside the hill clamp" % hill_name
 	var paper := main.find_child("TitlePaper", true, false) as CanvasItem
 	if paper.modulate.a < 0.08 or paper.modulate.a > 0.12:
 		return "paper softlight is not a light veil"

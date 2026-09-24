@@ -5,8 +5,8 @@
     "barkling": {"name": "Barkling", "family": "leaf", "hp": 26, "atk": 5, "armor": 0, "regen": 0, "role": "melee"},
     "pollen": {"name": "Pollen Wisp", "family": "beast", "hp": 14, "atk": 5, "armor": 0, "regen": 0, "role": "ranged"},
     "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0, "role": "ranged"},
-    "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 20, "atk": 6, "armor": 1, "regen": 0, "role": "melee"},
-    "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 120, "atk": 8, "armor": 2, "regen": 1, "boss": true, "role": "ranged"},
+    "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 14, "atk": 6, "armor": 1, "regen": 0, "role": "melee"},
+    "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 98, "atk": 8, "armor": 2, "regen": 1, "boss": true, "role": "ranged"},
     "sprig": {"name": "Sprig Add", "family": "beast", "hp": 16, "atk": 5, "armor": 0, "regen": 0, "role": "melee"}
   },
   "encounters": {
