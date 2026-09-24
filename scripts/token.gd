@@ -5,6 +5,9 @@ extends RefCounted
 # Sproutling, Sparkpup, and Cottonwisp use starters-v1.3-anemononima:
 # 140-class (220×200 canvas) on pick and title, 64-class (96×80) on the board,
 # static 32 on tight lists. Idle is 8 frames; merge is 6. Nearest, no mipmaps.
+# Meadow enemies and Budmite use wild-cast-v1-anemononima on the same clock:
+# 64-class (96×88) on the board, 140-class (220×220) for the Budmite unlock
+# and shop portrait. Idle is 8 frames. No merge sheet, no telegraph.
 
 const STARTER_FACE := preload("res://scripts/starter_face.gd")
 
@@ -21,6 +24,18 @@ const STARTER_SHEET_140_MIN := 96.0
 const STARTER_SHEET_64_MIN := 44.0
 const STARTER_IDLE_FRAMES := 8
 const STARTER_MERGE_FRAMES := 6
+const WILD_ROOT := "res://art/wild"
+# Marks stay the names the board already uses. Values are the drop file ids.
+# 64-class canvas is 96×88. Budmite 140-class canvas is 220×220.
+# Idle 00–07 is already pack order [0, 1, 0, 3, 0, 6, 0, 7].
+const WILD_CAST := {
+	"meadow": "meadow_mite",
+	"tired": "tired_mite",
+	"barkling": "barkling",
+	"pollen": "pollen_wisp",
+	"budmite": "budmite",
+}
+const WILD_IDLE_FRAMES := 8
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family
@@ -41,6 +56,10 @@ static func enemy_mark(def_id: String) -> String:
 			return "meadow"
 		"mite_small":
 			return "tired"
+		"barkling":
+			return "barkling"
+		"pollen":
+			return "pollen"
 		"warden":
 			return "warden"
 		"bramble":
@@ -148,6 +167,10 @@ static func species_mark(family: String, line: String, tier: int) -> String:
 
 
 static func clarity_texture(mark: String) -> Texture2D:
+	if is_wild_cast(mark):
+		var live := _load_png(_wild_static_path(mark, 64))
+		if live != null:
+			return live
 	if not MARK_FILES.has(mark):
 		return null
 	var path := "res://art/tokens/%s.png" % str(MARK_FILES[mark])
@@ -175,13 +198,13 @@ const WILD_MARKS := {
 static var _corners: Dictionary = {}
 
 
-static func present(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
-	var token := make(family, tier, max_h, boss, mark, role)
+static func present(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "", portrait: bool = false) -> Control:
+	var token := make(family, tier, max_h, boss, mark, role, portrait)
 	token.name = "Capsule"
 	var box := Control.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Starter frames are a pixel pack. Capsules stay linear.
-	if is_starter_mark(mark):
+	# Pack frames stay nearest. Capsules stay linear.
+	if is_starter_mark(mark) or is_wild_cast(mark):
 		box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	else:
 		box.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -309,6 +332,19 @@ static func is_starter_mark(mark: String) -> bool:
 	return STARTER_MARKS.has(mark)
 
 
+static func is_wild_cast(mark: String) -> bool:
+	return WILD_CAST.has(mark)
+
+
+# Board and combat stay on 64. Budmite's unlock hero is a large sit (>= 96).
+# The shop row is the same 64-tall slot as other offers; portrait selects the
+# 140-class canvas and the slot still does the scaling.
+static func wild_sheet_px(mark: String, max_h: float, portrait: bool = false) -> int:
+	if mark == "budmite" and (portrait or max_h >= STARTER_SHEET_140_MIN):
+		return 140
+	return 64
+
+
 static func starter_sheet_px(max_h: float) -> int:
 	if max_h >= STARTER_SHEET_140_MIN:
 		return 140
@@ -331,6 +367,18 @@ static func sheet_frame(tex: Texture2D, w: int, h: int) -> Texture2D:
 
 static func _static_path(mark: String, px: int) -> String:
 	return "%s/static/%s_%d.png" % [STARTER_ROOT, mark, px]
+
+
+static func _wild_file(mark: String) -> String:
+	return str(WILD_CAST.get(mark, mark))
+
+
+static func _wild_static_path(mark: String, px: int) -> String:
+	return "%s/static/%s_%d.png" % [WILD_ROOT, _wild_file(mark), px]
+
+
+static func _wild_idle_path(mark: String, index: int, px: int) -> String:
+	return "%s/idle/%s_idle_%02d_%d.png" % [WILD_ROOT, _wild_file(mark), index, px]
 
 
 static func _anim_path(mark: String, kind: String, index: int, px: int) -> String:
@@ -365,7 +413,21 @@ static func _starter_pack(mark: String, px: int, w: int, h: int) -> Dictionary:
 	return {"static": _filtered(still, w, h, true), "idle": idle, "merge": merging}
 
 
-static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
+static func _wild_pack(mark: String, px: int, w: int, h: int) -> Dictionary:
+	var still := _load_png(_wild_static_path(mark, px))
+	if still == null:
+		return {}
+	var idle: Array = []
+	for i in WILD_IDLE_FRAMES:
+		var frame := _load_png(_wild_idle_path(mark, i, px))
+		if frame == null:
+			return {}
+		idle.append(_filtered(frame, w, h, true))
+	# Telegraph and merge sheets are not in this drop.
+	return {"static": _filtered(still, w, h, true), "idle": idle, "merge": []}
+
+
+static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "", portrait: bool = false) -> Control:
 	var rect := TextureRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -376,6 +438,9 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	var tex: Texture2D = null
 	if is_starter_mark(mark):
 		tex = _load_png(_static_path(mark, px))
+	elif is_wild_cast(mark):
+		px = wild_sheet_px(mark, max_h, portrait)
+		tex = _load_png(_wild_static_path(mark, px))
 	if tex == null:
 		tex = clarity_texture(mark)
 	if tex == null:
@@ -417,6 +482,8 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	var pack := {}
 	if is_starter_mark(mark):
 		pack = _starter_pack(mark, px, int(w), int(h))
+	elif is_wild_cast(mark):
+		pack = _wild_pack(mark, px, int(w), int(h))
 	if not pack.is_empty():
 		rect.free()
 		var face: TextureRect = STARTER_FACE.new()

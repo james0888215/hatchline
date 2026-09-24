@@ -54,6 +54,14 @@ func _main() -> void:
 			break
 		print("OK   ", name)
 	if failures.is_empty():
+		print("RUN wild_motion")
+		var wild_err: String = await _test_wild_motion()
+		if wild_err != "":
+			print("FAIL wild_motion: ", wild_err)
+			failures.append("wild_motion")
+		else:
+			print("OK   wild_motion")
+	if failures.is_empty():
 		print("RUN starter_motion")
 		var motion_err: String = await _test_starter_motion()
 		if motion_err != "":
@@ -526,8 +534,36 @@ func _test_combat_floats() -> String:
 	if int(cotton.get("sheet_px")) != 64:
 		return "cottonwisp board should use 64"
 	var bud = tokens.make("leaf", 1, 64.0, false, "budmite", "ranged")
-	if bud.get_script() != null:
-		return "budmite left the capsule"
+	if bud.get_script() == null or str(bud.get_script().resource_path) != "res://scripts/starter_face.gd":
+		return "budmite board is still a capsule"
+	if bud.texture_filter != CanvasItem.TEXTURE_FILTER_NEAREST or bud.texture.get_image().has_mipmaps():
+		return "budmite board filter"
+	if int(bud.get("sheet_px")) != 64 or int(bud.get("idle_count")) != 8 or int(bud.get("merge_count")) != 0:
+		return "budmite board sheet"
+	var bud_shop = tokens.make("leaf", 1, 64.0, false, "budmite", "ranged", true)
+	if int(bud_shop.get("sheet_px")) != 140:
+		return "budmite shop portrait is not 140"
+	var bud_unlock = tokens.make("leaf", 1, 132.0, false, "budmite", "ranged")
+	if int(bud_unlock.get("sheet_px")) != 140 or int(bud_unlock.get("idle_count")) != 8:
+		return "budmite unlock is not the 140 idle"
+	if tokens.enemy_mark("barkling") != "barkling" or tokens.enemy_mark("pollen") != "pollen":
+		return "meadow cast marks"
+	if tokens.enemy_mark("barkling") == tokens.enemy_mark("mite") or tokens.enemy_mark("pollen") == tokens.enemy_mark("mite_small"):
+		return "meadow cast shares a mite face"
+	for wild_mark in ["meadow", "tired", "barkling", "pollen"]:
+		var foe = tokens.make("beast", 1, 64.0, false, wild_mark, "melee")
+		if int(foe.get("sheet_px")) != 64 or int(foe.get("idle_count")) != 8 or int(foe.get("merge_count")) != 0:
+			return wild_mark + " board sheet"
+		if foe.texture_filter != CanvasItem.TEXTURE_FILTER_NEAREST:
+			return wild_mark + " filter"
+	var board_canvas: Texture2D = load("res://art/wild/static/meadow_mite_64.png")
+	var portrait_canvas: Texture2D = load("res://art/wild/static/budmite_140.png")
+	if board_canvas.get_width() != 96 or board_canvas.get_height() != 88:
+		return "board canvas is not 96x88"
+	if portrait_canvas.get_width() != 220 or portrait_canvas.get_height() != 220:
+		return "budmite portrait canvas is not 220x220"
+	if ResourceLoader.exists("res://art/tokens/mite_meadow.png") or ResourceLoader.exists("res://art/tokens/mite_tired.png"):
+		return "capsule mites are still live"
 	if tokens.clarity_texture("sproutling") == null:
 		return "old sproutling crop missing"
 	return ""
@@ -759,13 +795,21 @@ func _test_sheet_art() -> String:
 			return "%s is not dusty mauve %s" % [mark, tone]
 		if tone.r > 0.88:
 			return "%s still candy bright %s" % [mark, tone]
-	if _green_count(tokens.clarity_texture("meadow")) < 80:
+	# Pack grass is a small cue on the 96×88 canvas. A recolor drops this to none.
+	if _green_count(tokens.clarity_texture("meadow")) < 50:
 		return "meadow sprout was recolored"
 	if _green_count(tokens.clarity_texture("sprig")) < 40:
 		return "sprig leaves are not green"
 	var drift := _body_mean(tokens.clarity_texture("driftkin"))
 	if drift.b < drift.r or drift.g < drift.r:
 		return "driftkin lost powder blue %s" % drift
+	if _green_count(tokens.clarity_texture("budmite")) < 400:
+		return "budmite lost the mint body"
+	var z_err := _tired_z(tokens.clarity_texture("tired"))
+	if z_err != "":
+		return z_err
+	if _white_count(tokens.clarity_texture("meadow")) > 8:
+		return "meadow grew a white badge"
 	var sprout: Control = tokens.present("leaf", 1, 96.0, false, "sproutling", "melee")
 	var sprout_err := _badge_clear(sprout, "sproutling")
 	if sprout_err != "":
@@ -841,6 +885,65 @@ func _green_count(tex: Texture2D) -> int:
 			if c.a > 0.6 and c.g > c.r + 0.06 and c.g > c.b + 0.06:
 				n += 1
 	return n
+
+
+func _white_count(tex: Texture2D) -> int:
+	var img := tex.get_image()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var n := 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.78 and c.r > 0.90 and c.g > 0.90 and c.b > 0.90:
+				n += 1
+	return n
+
+
+# Soft keep: the Tired badge stays a Z, not a slash or an empty disc.
+# A Z has wide horizontal bars separated down the glyph. A slash does not.
+func _tired_z(tex: Texture2D) -> String:
+	var img := tex.get_image()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var pts: Array = []
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.78 and c.r > 0.90 and c.g > 0.90 and c.b > 0.90:
+				pts.append(Vector2i(x, y))
+	if pts.size() < 80:
+		return "tired Z missing (%d white)" % pts.size()
+	var min_x := 999
+	var max_x := 0
+	var min_y := 999
+	var max_y := 0
+	for p in pts:
+		var point := p as Vector2i
+		min_x = mini(min_x, point.x)
+		max_x = maxi(max_x, point.x)
+		min_y = mini(min_y, point.y)
+		max_y = maxi(max_y, point.y)
+	var span := max_x - min_x + 1
+	var rows := {}
+	for p in pts:
+		var point := p as Vector2i
+		if not rows.has(point.y):
+			rows[point.y] = [point.x, point.x]
+		else:
+			rows[point.y][0] = mini(int(rows[point.y][0]), point.x)
+			rows[point.y][1] = maxi(int(rows[point.y][1]), point.x)
+	var bars: Array = []
+	for y in rows.keys():
+		var width := int(rows[y][1]) - int(rows[y][0]) + 1
+		if width >= int(float(span) * 0.7):
+			bars.append(int(y))
+	if bars.size() < 2:
+		return "tired mark has no Z bars"
+	bars.sort()
+	if int(bars[bars.size() - 1]) - int(bars[0]) < 4:
+		return "tired Z bars are stacked"
+	return ""
 
 
 func _test_roles() -> String:
@@ -1123,6 +1226,38 @@ func _test_unlock() -> String:
 	g._load_profile()
 	if "bud" not in g.profile.unlocked_lines:
 		return "unlock did not save"
+	return ""
+
+
+func _test_wild_motion() -> String:
+	var tokens = load("res://scripts/token.gd")
+	var sprout = tokens.make("leaf", 1, 64.0, false, "sproutling", "melee")
+	var mite = tokens.make("beast", 1, 64.0, false, "tired", "ranged")
+	var bud = tokens.make("leaf", 1, 132.0, false, "budmite", "ranged")
+	root.add_child(sprout)
+	root.add_child(mite)
+	root.add_child(bud)
+	var mite_still: Texture2D = mite.texture
+	var bud_still: Texture2D = bud.texture
+	await create_timer(0.25).timeout
+	if mite.texture == mite_still or bud.texture == bud_still:
+		sprout.queue_free()
+		mite.queue_free()
+		bud.queue_free()
+		return "wild idle did not leave the static frame"
+	if mite.scale != Vector2.ONE or bud.scale != Vector2.ONE or sprout.scale != Vector2.ONE:
+		sprout.queue_free()
+		mite.queue_free()
+		bud.queue_free()
+		return "wild idle stacked a scale tween"
+	if int(mite.get("frame_i")) != int(sprout.get("frame_i")) or int(bud.get("frame_i")) != int(sprout.get("frame_i")):
+		sprout.queue_free()
+		mite.queue_free()
+		bud.queue_free()
+		return "wild cast does not share the starter idle clock"
+	sprout.queue_free()
+	mite.queue_free()
+	bud.queue_free()
 	return ""
 
 

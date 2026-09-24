@@ -14,6 +14,9 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "art" / "style-lock"
 OUT = ROOT / "art" / "tokens"
+ARCHIVE = OUT / "archive"
+# Live Meadow Mite and Tired Mite are art/wild. This tool keeps the old capsules archived.
+ARCHIVED_CAPSULES = {"mite_meadow", "mite_tired"}
 
 # Tight boxes around each critter on the 1280×720 sheets, labels excluded.
 SHEET_BOXES = {
@@ -205,13 +208,20 @@ def _mauve_pixel(r: int, g: int, b: int) -> tuple:
     )
 
 
+def token_path(name: str) -> Path:
+    if name in ARCHIVED_CAPSULES:
+        return ARCHIVE / f"{name}.png"
+    return OUT / f"{name}.png"
+
+
 def tint_wild() -> None:
     """Sheet 12. Mite, warden, bramble, and sprig read as dusty mauve.
 
     Driftkin stays the powder-blue sail from sheet 07.
+    Meadow Mite and Tired Mite land in the archive, not the live token folder.
     """
     for name in WILD_TINT_FILES:
-        path = OUT / f"{name}.png"
+        path = token_path(name)
         arr = np.array(Image.open(path).convert("RGBA"))
         out = arr.copy()
         changed = 0
@@ -263,6 +273,7 @@ def green_sprig_leaves() -> None:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    ARCHIVE.mkdir(parents=True, exist_ok=True)
     for sheet, items in SHEET_BOXES.items():
         for name, box in items:
             img = cut(LOCK / sheet, box)
@@ -277,7 +288,7 @@ def main() -> None:
     clarity = LOCK / "06-token-clarity.png"
     for name, box in CLARITY_BOXES:
         img = cut_clarity(clarity, box)
-        dest = OUT / f"{name}.png"
+        dest = token_path(name)
         img.save(dest)
         print(f"{dest.name} {img.size}")
     elites = LOCK / "07-token-clarity-elites.png"

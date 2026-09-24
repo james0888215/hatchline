@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://4vyddeaihmqy"
-path="res://.godot/imported/mite_meadow.png-e4a9f88bf5d41dd35ef66ebd74e77cd6.ctex"
+uid="uid://5jf6x2bfh4ub"
+path="res://.godot/imported/pollen_wisp_idle_05_140.png-ed70e92eafcb1969484803f81cd76224.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/tokens/mite_meadow.png"
-dest_files=["res://.godot/imported/mite_meadow.png-e4a9f88bf5d41dd35ef66ebd74e77cd6.ctex"]
+source_file="res://art/wild/idle/pollen_wisp_idle_05_140.png"
+dest_files=["res://.godot/imported/pollen_wisp_idle_05_140.png-ed70e92eafcb1969484803f81cd76224.ctex"]
 
 [params]
 
