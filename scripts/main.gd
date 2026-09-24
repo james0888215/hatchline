@@ -224,8 +224,7 @@ func _starter_card(id: String) -> Button:
 	col.add_theme_constant_override("separation", 2)
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.make(str(c.family), int(c.tier), 128.0)
-	token.name = "Capsule"
+	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, "", str(c.get("role", "")))
 	hold.add_child(token)
 	col.add_child(hold)
 	if is_new:
@@ -263,7 +262,7 @@ func _dex_grid() -> GridContainer:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 6)
 		if known:
-			row.add_child(TOKENS.make(str(c.family), int(c.tier), 40.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))))
+			row.add_child(TOKENS.present(str(c.family), int(c.tier), 40.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", ""))))
 		var lab := _lbl("✓ %s  T%d" % [c.name, int(c.tier)] if known else "???", 13, INK if known else MUTED)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(lab)
@@ -358,7 +357,7 @@ func _build_combat(page: VBoxContainer) -> void:
 	enemy_links = enemy_stage.links
 	ally_floats = ally_stage.floats
 	enemy_floats = enemy_stage.floats
-	body.add_child(_combat_frame("YOUR MEADOW", ally_stage.stage))
+	body.add_child(_combat_frame("YOUR MEADOW", ally_stage.stage, PackedStringArray(["Back", "Mid", "Front"])))
 	var mid := VBoxContainer.new()
 	mid.custom_minimum_size = Vector2(196, 0)
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -381,7 +380,7 @@ func _build_combat(page: VBoxContainer) -> void:
 	punch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	punch_box.add_child(punch_label)
 	mid.add_child(punch_box)
-	body.add_child(_combat_frame("ENEMY CRITTERS", enemy_stage.stage))
+	body.add_child(_combat_frame("ENEMY CRITTERS", enemy_stage.stage, PackedStringArray(["Front", "Mid", "Back"])))
 	page.add_child(_log_bar())
 	_sync_combat()
 
@@ -440,8 +439,7 @@ func _unlock_card(copy: String) -> PanelContainer:
 	var tier := int(found.get("tier", 1))
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.make(family, tier, 132.0)
-	token.name = "Capsule"
+	var token := TOKENS.present(family, tier, 132.0, false, "", str(found.get("role", "")))
 	hold.add_child(token)
 	col.add_child(hold)
 	var chip_row := CenterContainer.new()
@@ -679,6 +677,7 @@ func _board_column() -> VBoxContainer:
 			slot.get_node("Margin/SlotBody").add_child(tag)
 		grid.add_child(slot)
 	built.stage.custom_minimum_size = grid.get_combined_minimum_size()
+	col.add_child(_rank_heads(PackedStringArray(["Back", "Mid", "Front"])))
 	col.add_child(built.stage)
 	return col
 
@@ -735,7 +734,7 @@ func _shop_card(i: int) -> Panel:
 		row.add_child(_lbl("Empty", 14, MUTED))
 		return panel
 	var c: Dictionary = Game.critters[def_id]
-	row.add_child(TOKENS.make(str(c.family), int(c.tier), 64.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))))
+	row.add_child(TOKENS.present(str(c.family), int(c.tier), 64.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", ""))))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -803,7 +802,7 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 			holder.offset_right = -2
 			holder.offset_top = 2
 			holder.offset_bottom = -18
-			holder.add_child(TOKENS.make(str(d.family), 1, 44.0, boss, TOKENS.enemy_mark(str(spec.def))))
+			holder.add_child(TOKENS.present(str(d.family), 1, 44.0, boss, TOKENS.enemy_mark(str(spec.def)), str(d.get("role", "melee"))))
 			panel.add_child(holder)
 			var band := _name_band(_short_name(str(d.name), 14), 10, INK)
 			band.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -889,7 +888,9 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 	var wide: bool = w > h + 40.0
 	var flashing: bool = Game.run != null and int(unit.uid) == int(Game.run.get("flash_uid", -1))
 	var species := TOKENS.species_mark(str(unit.family), str(unit.get("line", "")), int(unit.tier))
-	var token := TOKENS.make(str(unit.family), int(unit.tier), 52.0 if wide else 46.0, false, species)
+	var role := str(unit.get("role", "melee"))
+	slot.set("preview_role", role)
+	var token := TOKENS.present(str(unit.family), int(unit.tier), 52.0 if wide else 46.0, false, species, role)
 	var pop := _pop_wrap(token)
 	if flashing:
 		_play_merge_pop(pop)
@@ -902,7 +903,13 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 	if reg > 0:
 		full += "   %d REG" % reg
 	var quiet := zone == "board" and Game.board_count() >= 5
-	slot.tooltip_text = "%s\n%d HP\n%d ATK\n%d ARM\n%d REG" % [unit.name, hp, atk, arm, reg]
+	var role_word := "Ranged" if role == "ranged" else "Melee"
+	var tip := "%s\n%s" % [unit.name, role_word]
+	if zone == "board":
+		var rx := int(index) % Game.econ("BOARD_W")
+		var rank := "Back" if rx == 0 else ("Mid" if rx == 1 else "Front")
+		tip += " · %s" % rank
+	slot.tooltip_text = "%s\n%d HP\n%d ATK\n%d ARM\n%d REG" % [tip, hp, atk, arm, reg]
 	var name := _lbl("%s  T%d" % [unit.name, int(unit.tier)], 14, INK)
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var meta := _lbl(("%d HP" % hp) if quiet else full, 13, INK)
@@ -965,7 +972,20 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 	return slot
 
 
-func _combat_frame(title: String, stage: Control) -> VBoxContainer:
+func _rank_heads(words: PackedStringArray) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "RankHeads"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	for word in words:
+		var lab := _lbl(word, 12, MUTED)
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lab)
+	return row
+
+
+func _combat_frame(title: String, stage: Control, ranks: PackedStringArray) -> VBoxContainer:
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -985,6 +1005,7 @@ func _combat_frame(title: String, stage: Control) -> VBoxContainer:
 	tab.add_child(tab_label)
 	tab_row.add_child(tab)
 	col.add_child(tab_row)
+	col.add_child(_rank_heads(ranks))
 	var frame := Panel.new()
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1225,8 +1246,7 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	band.offset_bottom = 16
 	panel.add_child(band)
 	var fresh_kill: bool = popping.has(int(unit.uid))
-	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 64.0, bool(unit.get("boss", false)), TOKENS.unit_mark(unit))
-	token.name = "Capsule"
+	var token := TOKENS.present(str(unit.family), int(unit.get("tier", 1)), 64.0, bool(unit.get("boss", false)), TOKENS.unit_mark(unit), str(unit.get("role", "melee")))
 	if not alive and not fresh_kill:
 		token.modulate = Color(0.62, 0.62, 0.64)
 	var juice := _juice_wrap(token)
@@ -1295,7 +1315,8 @@ func _combat_detail(unit) -> String:
 	var hp := "%d/%d HP" % [int(unit.hp), int(unit.max_hp)]
 	if not bool(unit.alive):
 		hp = "fainted"
-	return "%s\n%s\n%d ATK\n%d ARM\n%d REG" % [unit.name, hp, atk, arm, reg]
+	var role_word := "Ranged" if str(unit.get("role", "")) == "ranged" else "Melee"
+	return "%s\n%s · %s\n%s\n%d ATK\n%d ARM\n%d REG" % [unit.name, role_word, CombatSim.rank_label(unit), hp, atk, arm, reg]
 
 
 func _toggle_punch(unit) -> void:
