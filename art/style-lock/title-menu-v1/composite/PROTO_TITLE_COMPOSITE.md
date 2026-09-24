@@ -2,7 +2,7 @@
 
 **Cut:** title / start menu polish — **Assets shortlist composite** (no gen, no Art muddy wash).  
 **Canvas:** 1280×800  
-**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), cream pills raised (~58% from top), big calm sky, layered world. Pack stack A is the default. James locked this layout.
+**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), buttons mid-lower (~58% from top), big calm sky, layered world. **James locked A pack stack + raised menu 2026-09-24.**
 
 **Default background** = **pack stack** (`title-composite-pack-stack.png` + `layers/`).  
 Art-drawn Stardew meadow B (`../bg-title-texture-B-meadow-1280x800.png`) is **fallback only**.  
@@ -34,7 +34,7 @@ Base folder: `art/style-lock/title-menu-v1/composite/`
 | Layer | File | Notes |
 |-------|------|-------|
 | Sky | `layers/sky.png` | edermunizz `skyDay01` NN×5, warm cream grade, 1280×800 |
-| Clouds | `layers/clouds.png` | Garzett sprites, cream-tinted, sparse; **drift this** |
+| Clouds | `layers/clouds.png` | Garzett sprites, cream-tinted, sparse; **1280×800 wrap-tileable; drift this** |
 | Far | `layers/far.png` | VISTA `downs_1_far@3x` NN→1280, mint/sage grade, bottom-aligned |
 | Mid | `layers/mid.png` | VISTA `downs_2_mid@3x` |
 | Near | `layers/near.png` | VISTA `downs_3_near@3x` |
@@ -57,7 +57,7 @@ Source candidates (do not redistribute raw packs beyond project):
 |---------|-----------|
 | Logo | Centered, upper sky third (~7–12% from top). Calm sky behind. |
 | Negative space | Open sky between logo and buttons (mid band clear). |
-| Buttons | Vertical stack. First cream pill ~**58%** from the top (Play, then Hatch-dex, then Options). Thick charcoal outline, dark charcoal labels. Calm sky stays between the logo and the first pill. |
+| Buttons | Stacked **mid-lower** (~**58%** from top), raised from prior 70% per James 2026-09-24. Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Keep the calm sky gap under the logo; not full mid-screen over hills. |
 | Version | Tiny bottom-right: `v0.playtest-1` |
 
 Button chrome (match mock): fill `#FAF6EE`, outline `#2C2A28` (~4px), label `#2C2A28`, ~300×54 pills, ~18px gap.
@@ -75,7 +75,7 @@ Button chrome (match mock): fill `#FAF6EE`, outline `#2C2A28` (~4px), label `#2C
 | Buttons hover | scale **1.03** | soft ease ~120–180 ms |
 | Logo | static | — |
 
-Idle only. No bob on buttons. Match `motion/MOTION_BRIEF_v1.md` menu = slow sky drift + static UI.
+Idle only. No bob on buttons. `clouds.png` is now a **seamless horizontal wrap plate**: Proto may wrap-scroll it within the locked **8–16 px / 12–20 s** drift amount (12 px / 16 s is the live target). Ease ping-pong remains a valid fallback. Far/mid/near hill plates remain non-tileable and should stay ease ping-pong unless separately tiled. Match `motion/MOTION_BRIEF_v1.md` menu = slow sky drift + static UI.
 
 ---
 
@@ -102,15 +102,23 @@ Do not redistribute source packs as stand-alone asset products.
 **Cons:** Flat (no parallax layers); denser flowers near button band.  
 If chosen: wire as single TextureRect under chrome; skip `layers/` parallax. Still CC0.
 
-**Recommendation:** Ship pack stack A as the default (parallax + cloud drift). Painted alt stays the flip option, not the default.
+**Recommendation:** James locked **A pack stack** with raised menu (2026-09-24). Ship it as default (parallax + Proto drift); keep painted alt as fallback/alt only on sheet 19, not James pick.
 
 ---
 
 ## 7) Checklist
 
 - [ ] Load `layers/sky → clouds → far → mid → near` (+ optional paper)
-- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills raised (~58% from top)
+- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills mid-lower (~58%, raised per James 2026-09-24)
 - [ ] Cloud drift 8–16px / 12–20s; button hover 1.03
 - [ ] Credit **edermunizz** (sky); list CC0 (VISTA, paper, heartpunch if used)
 - [ ] Art-drawn B meadow = fallback only
 - [ ] No new creature art; style lock closed; in-run deferred
+
+## 8) Scenic cream-paper grade (P2 — 2026-09-24)
+
+Playtest #22: pack scenic `layers/{sky,clouds,far,mid,near,paper-softlight}.png` got a **cream-paper grade** pass (gentle blur / slight chalk, desaturate NN crunch, warm toward cream). Not a painted redraw — painted B (`title-composite-painted-alt.png`) stays alt only. Starter-select reuses the same graded layers.
+
+## 9) Wrap pass (2026-09-24)
+
+`layers/clouds.png` was rebuilt from the Garzett sprites with periodic boundary stamping and an exact L/R seam normalization. It is now safe for horizontal wrap-scroll within the locked motion brief. The prior plate is archived at `layers/_pre-tileable-clouds-2026-09-24/clouds.png`. Hills were not changed.

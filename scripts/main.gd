@@ -25,9 +25,8 @@ const PICK_ACTION_ANCHOR := 0.74
 const PICK_SELECTED_SCALE := 1.045
 const PICK_HOVER_SEC := 0.11
 const TITLE_VERSION := "v0.playtest-1"
-# MOTION_BRIEF §3. One-way travel, then the loop returns. Not a tiled wrap.
-# Clouds stay inside 8–16 px over 12–20 s. Far hills stay ≤4 px over 20 s.
-# clouds.png edges do not meet, so a wrap would hitch. Do not speed drift to hide that.
+# MOTION_BRIEF §3. Clouds wrap-scroll at 12 px / 16 s (inside 8–16 px / 12–20 s).
+# Hills stay sine ping-pong at ≤4 px over 20 s. Do not speed either, and do not wrap hills.
 # Starter frame idle is the shared clock only — no scale tween on those frames.
 const CLOUD_DRIFT_PX := 12.0
 const CLOUD_DRIFT_SEC := 16.0
@@ -648,7 +647,7 @@ func _add_title_stage(for_pick: bool) -> void:
 func _add_pack_stack() -> void:
 	# sky → clouds → far → mid → near → paper → logo and buttons (page z 0)
 	host.add_child(_pack_layer("TitleSky", "sky.png", -20, 0.0, 0.0))
-	host.add_child(_pack_layer("TitleClouds", "clouds.png", -16, CLOUD_DRIFT_PX, CLOUD_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleClouds", "clouds.png", -16, CLOUD_DRIFT_PX, CLOUD_DRIFT_SEC, true))
 	host.add_child(_pack_layer("TitleFar", "far.png", -14, FAR_DRIFT_PX, FAR_DRIFT_SEC))
 	host.add_child(_pack_layer("TitleMid", "mid.png", -12, MID_DRIFT_PX, MID_DRIFT_SEC))
 	host.add_child(_pack_layer("TitleNear", "near.png", -10, NEAR_DRIFT_PX, NEAR_DRIFT_SEC))
@@ -679,7 +678,7 @@ func _pack_layer_path(file_name: String) -> String:
 	return "%s/layers/%s" % [TITLE_COMPOSITE, file_name]
 
 
-func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, drift_sec: float) -> Control:
+func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, drift_sec: float, wrap_scroll: bool = false) -> Control:
 	var clip := Control.new()
 	clip.name = node_name
 	clip.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -688,13 +687,28 @@ func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, 
 	clip.z_index = z
 	clip.set_meta("drift_px", drift_px)
 	clip.set_meta("drift_sec", drift_sec)
-	var rect := TextureRect.new()
-	rect.name = node_name + "Art"
-	rect.texture = _title_tex(_pack_layer_path(file_name))
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	clip.set_meta("drift_wrap", wrap_scroll)
+	if wrap_scroll and drift_px > 0.0:
+		var strip := Control.new()
+		strip.name = node_name + "Strip"
+		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lead := _pack_plate(node_name + "Art", file_name)
+		var follow := _pack_plate(node_name + "ArtB", file_name)
+		strip.add_child(lead)
+		strip.add_child(follow)
+		clip.add_child(strip)
+		var fit_wrap := func() -> void:
+			var span := clip.size.x
+			var tall := clip.size.y
+			lead.position = Vector2.ZERO
+			lead.size = Vector2(span, tall)
+			follow.position = Vector2(span, 0.0)
+			follow.size = Vector2(span, tall)
+			_restart_wrap(strip, drift_px, drift_sec, span)
+		clip.resized.connect(fit_wrap)
+		fit_wrap.call()
+		return clip
+	var rect := _pack_plate(node_name + "Art", file_name)
 	clip.add_child(rect)
 	if drift_px <= 0.0:
 		rect.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -708,11 +722,38 @@ func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, 
 	rect.position.x = -drift_px
 	var tw := rect.create_tween()
 	tw.set_loops()
-	# Ping-pong, not a wrap. Sine ease-in-out softens the reverse; px and time stay put.
+	# Hills only. One-way travel, then return. Sine ease-in-out softens the reverse.
 	tw.tween_property(rect, "position:x", 0.0, drift_sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(rect, "position:x", -drift_px, drift_sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	rect.set_meta("drift_tw", tw)
 	return clip
+
+
+func _pack_plate(plate_name: String, file_name: String) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.name = plate_name
+	rect.texture = _title_tex(_pack_layer_path(file_name))
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	return rect
+
+
+func _restart_wrap(strip: Control, drift_px: float, drift_sec: float, span: float) -> void:
+	if strip.has_meta("drift_tw"):
+		var old = strip.get_meta("drift_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	strip.position = Vector2.ZERO
+	if span < 1.0 or drift_px <= 0.0:
+		return
+	# Constant speed. 12 px / 16 s never becomes a full-tile lap in 16 s.
+	var duration := span / drift_px * drift_sec
+	var tw := strip.create_tween()
+	tw.set_loops()
+	tw.tween_property(strip, "position:x", -span, duration).from(0.0).set_trans(Tween.TRANS_LINEAR)
+	strip.set_meta("drift_tw", tw)
 
 
 func _add_meadow_fallback(for_pick: bool) -> void:

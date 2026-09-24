@@ -1,23 +1,33 @@
-# Title / start menu polish v1.2 — Proto recipe
+# Title / start menu polish v1.3 — Proto recipe
 
-**Cut:** title / start menu polish (playtest-1) — **v1.2 trio refine + Stardew meadow**.  
+**Cut:** title / start menu polish (playtest-1) — **v1.3 Assets pack-stack composite**.  
 **Style lock:** closed — flat pastel cream-paper. No creature production redraw. In-run deferred.
 
-James feedback on v1.1: trio oversized/floating; muddy watercolor B rejected.  
-**LOCKED wordmark** = three starters centered ABOVE “Hatchline” (now smaller + tighter).  
-**Default bg** = Stardew-leaning painted meadow (warm cream/peach sky, sage/olive hill bands, patterned grass). Muddy B archived.
+James feedback trail: trio oversized/floating (fixed v1.2); muddy watercolor B rejected; Art-drawn meadow retired as default.  
+**LOCKED wordmark** = three starters centered ABOVE “Hatchline” (smaller + tighter).  
+**Default bg** = **Assets shortlist pack stack** → `composite/` (edermunizz sky + VISTA hills + Garzett clouds).  
+Art-drawn Stardew meadow B = **fallback only**. Painted heartpunch alt = fallback/alt only, not James pick. **James locked A pack stack + raised menu 2026-09-24.**
 
 Sheet 11 / meadow-wash-v2 still define place intent for in-run. This pack owns title chrome only.
+
+**Proto composite recipe (z-order, motion, attribution):** `composite/PROTO_TITLE_COMPOSITE.md`
 
 ---
 
 ## 1) Z-order (locked)
 
+**Default (pack stack):**
+```
+sky → clouds → far → mid → near → (optional paper) → logo (trio + wordmark) → buttons / version
+```
+
+**Fallback (Art-drawn B only):**
 ```
 texture underlay  →  flourish hills / silhouette life  →  logo (trio + wordmark)  →  buttons / version
 ```
 
-Never draw texture or flourish above the three stacked cream buttons.
+Never draw scenery / texture / flourish above the three stacked cream buttons.  
+Full layer paths + motion: `composite/PROTO_TITLE_COMPOSITE.md`.
 
 ---
 
@@ -27,33 +37,39 @@ Never draw texture or flourish above the three stacked cream buttons.
 |-----|------|
 | **LOCKED wordmark** | `wordmark-hatchline-trio-{512,256}.png` |
 | Lock card (Proto) | `wordmark-hatchline-trio-lock.png` |
+| **DEFAULT bg stack** | `composite/layers/{sky,clouds,far,mid,near}.png` (+ opt `paper-softlight.png`) |
+| Pack-stack mock | `composite/title-composite-pack-stack.png` |
+| Painted alt (fallback/alt only) | `composite/title-composite-painted-alt.png` |
+| Composite Proto recipe | `composite/PROTO_TITLE_COMPOSITE.md` |
+| Review sheet | `../19-title-pack-composite.png` |
 | Archive A (type only) | `wordmark-hatchline-only-{512,256}.png` — archive only |
 | Archive B (side-icon) | `wordmark-hatchline-icon-{512,256}.png` — **retired as default** |
 | Texture A (paper grain) | `bg-title-texture-A-paper-1280x800.png` — quiet alt |
-| **Texture B (recommend / default)** | `bg-title-texture-B-meadow-1280x800.png` — **Stardew-leaning** |
-| Texture C (alias) | `bg-title-texture-C-stardew-meadow-1280x800.png` — same intent |
+| **Texture B (fallback only)** | `bg-title-texture-B-meadow-1280x800.png` — Art-drawn Stardew-leaning; **not default** |
+| Texture C (alias) | `bg-title-texture-C-stardew-meadow-1280x800.png` — same as B fallback |
 | Grass tile | `texture-meadow-grass-tile-256.png` |
 | Paper tile | `texture-paper-grain-512.png` |
 | Muddy B archive | `archive/bg-title-texture-B-meadow-muddy-archive.png` |
-| Title flourish (hills) | `flourish-title-underlay-1280x800.png` |
+| Title flourish (hills) | `flourish-title-underlay-1280x800.png` — fallback stack only |
 | Safe-zone guide | `flourish-title-underlay-safe-mask.png` |
 | Starter-pick stage | `flourish-starter-pick-1280x800.png` |
-| Full mock | `mock-title-menu-trio-texture.png` |
-| Review sheet | `../18-title-trio-stardew-bg.png` (sheet 17 = prior trio lock) |
+| Prior mock | `mock-title-menu-trio-texture.png` — pre-composite reference |
+| Prior review | `../18-title-trio-stardew-bg.png` (sheet 17 = trio lock) |
 
-Composite on cream paper `#F7F0E4` / `#F7F2E8`. Wordmark fill sage `#5A8F6A` + charcoal outline `#2C2A28`.  
-Meadow palette: cream `#F7F0E4`, sky peach `#F3E6D4`, sage `#A8C49A`, olive `#7E9B6E`.
+Wordmark fill sage `#5A8F6A` + charcoal outline `#2C2A28`.  
+Pack-stack palette: warm cream-blue sky, mint/sage VISTA hills (`#A8C49A` / `#7E9B6E` grade), cream pills `#FAF6EE`.
 
 ---
 
-## 3) Button safe zone (unchanged)
+## 3) Button safe zone + layout
 
 | Zone | Fraction | Rule |
 |------|----------|------|
-| Button safe | middle **50%** width × middle **40%** height | Wash / texture green δ ≤ **5–8%** or clear; **cream-ish** |
-| Wash OK | lower third + far left/right edges | Soft sage/olive hills; scenic interest |
-| Ground | bottom ~12% | Soft ground stripe OK |
-| Logo zone | center-upper | Calm open cream/peach sky |
+| Logo | upper sky third | Trio+wordmark high (Stardew); calm open sky |
+| Calm gap | mid band | Negative space between logo and buttons |
+| Buttons | **mid-lower** (~**58%** from top), raised from prior 70% per James 2026-09-24 | Cream pills stacked here; keep calm sky gap under logo; not full mid-screen over hills |
+| Button readable | mid **50%** width over near grass | Cream pills + thick charcoal; hills may sit behind |
+| Wash OK (fallback B) | lower third + far L/R | Soft sage/olive; green δ ≤ **5–8%** in readable band |
 
 Play / Hatch-dex / Options must stay fully readable on cream pills.
 
@@ -75,15 +91,16 @@ Side-icon B is **retired as default** (keep files as archive). Type-only A stays
 
 ---
 
-## 5) Background texture — Stardew-leaning meadow
+## 5) Background — pack stack default (Assets shortlist)
 
-Wire **texture B** (`bg-title-texture-B-meadow-1280x800.png`) as **default**.
+Wire **`composite/layers/`** as **default** (see `composite/PROTO_TITLE_COMPOSITE.md`).
 
-- **B / C** — warm cream/peach sky, gentle distant sage/olive hill bands, soft grass midground with subtle repeating blade/dot pattern, sparse tiny flower dots. Flat/painterly cream-paper Hatchline cousin of Stardew — **not** muddy watercolor speckles, **not** noisy grain soup, **not** dark, **not** photoreal. Center vertical band stays cream-ish for buttons.
-- **A** — soft paper grain (quiet alternate)
+- **Pack stack (#1)** — edermunizz pastel sky (warm cream grade) + Garzett sparse clouds + VISTA downs far/mid/near (NN scale, mint/sage grade) + optional paper soft-light ~10%. Logo high (~7–12% from top) / buttons mid-lower (~58%, raised per James 2026-09-24). Parallax-ready. **James locked A.**
+- **Painted alt** — heartpunch `flowermeadow_day` full-bleed (`composite/title-composite-painted-alt.png`) as fallback/alt only, not James pick (flat, no parallax).
+- **Fallback only** — Art-drawn texture B/C Stardew-leaning meadow (+ flourish). Quiet alt A paper grain.
 - **Archived:** `archive/bg-title-texture-B-meadow-muddy-archive.png` (v1.1 muddy B)
 
-Flourish hills / silhouette life sit **on top of** texture, still **under** chrome. Scenery interest is mostly in B now; flourish stays light.
+Attribution: **credit edermunizz** if sky ships; VISTA/paper/heartpunch = CC0; CraftPix only if flowers added later (OGA-BY).
 
 ---
 
@@ -106,9 +123,9 @@ Flourish hills / silhouette life sit **on top of** texture, still **under** chro
 
 ## 8) Quick checklist
 
-- [ ] Texture underlay z lowest; flourish above texture; logo above flourish; buttons top
+- [ ] Pack stack z: sky→clouds→far→mid→near→(paper)→logo→buttons (fallback: texture→flourish→logo→buttons)
 - [ ] Wire `wordmark-hatchline-trio-*` (v1.2 smaller sizing)
-- [ ] Wire texture **B Stardew-leaning meadow** as default (A quiet alt; muddy archived)
+- [ ] Wire **composite/layers pack stack** as default (James-locked A; painted alt = fallback/alt only; Art B = fallback only; muddy archived)
 - [ ] Button safe zone cream-ish (α / green δ ≤ 5–8%)
 - [ ] Scenic interest at sides + lower third + horizon; calm center-upper for logo
 - [ ] Sparse silhouette life decorative only
