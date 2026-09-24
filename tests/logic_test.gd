@@ -30,6 +30,7 @@ func _main() -> void:
 		["boss_summons", _test_boss_summons],
 		["shop_teach_and_buy", _test_shop],
 		["reroll_freeze_interest", _test_reroll_interest],
+		["freeze_survives_fight", _test_freeze_survives_fight],
 		["soft_cap_and_sell", _test_soft_cap_sell],
 		["sparring_win", _test_sparring],
 		["wild_with_buddies", _test_wild_win],
@@ -503,6 +504,71 @@ func _test_reroll_interest() -> String:
 	var step = g.econ("REROLL_SCALE_STEP")
 	if g.reroll_cost() != base + step:
 		return "cost did not scale"
+	return ""
+
+
+func _test_freeze_survives_fight() -> String:
+	g.blank_run()
+	g.run.coins = 40
+	g.enter_node("shop_a")
+	var slots := int(g.econ("SHOP_SLOTS"))
+	if g.run.shop.size() != slots:
+		return "opening slot count %d" % g.run.shop.size()
+	g.run.shop[1] = {"def_id": "dewcap", "frozen": false}
+	g.toggle_freeze(1)
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "freeze did not stick"
+	g.toggle_freeze(1)
+	if bool(g.run.shop[1].frozen):
+		return "unfreeze did not stick"
+	g.toggle_freeze(1)
+	g.run.shop[0] = {"def_id": "sproutling", "frozen": true}
+	g.run.shop[2] = {"def_id": "___sentinel", "frozen": false}
+	g.buy(0)
+	if g.run.shop.size() != slots:
+		return "buy ate a shop slot"
+	if str(g.run.shop[0].def_id) != "" or bool(g.run.shop[0].frozen):
+		return "bought freeze still holds the slot"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "buy shifted the frozen slot"
+	g.leave_node()
+	if str(g.run.node_id) != "wild_1":
+		return "did not reach the fight prep"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "fight prep cleared the freeze"
+	g.start_combat()
+	g.combat.player_won = true
+	g.combat.over = true
+	g.finish_combat()
+	if g.phase != "choice":
+		return "fight reward should open the fork, got " + g.phase
+	if g.run.shop.size() != slots:
+		return "fight changed the shop size"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "fight cleared the frozen offer"
+	g.choose(0)
+	if str(g.run.node_id) != "shop_b":
+		return "fork did not open the cart"
+	if g.run.shop.size() != slots:
+		return "next shop slot count %d" % g.run.shop.size()
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "frozen offer did not survive into the next prep"
+	if str(g.run.shop[0].def_id) == "":
+		return "bought slot was not refilled"
+	if str(g.run.shop[2].def_id) == "___sentinel":
+		return "unfrozen slot was not refreshed"
+	g.toggle_freeze(1)
+	if bool(g.run.shop[1].frozen) or str(g.run.shop[1].def_id) != "dewcap":
+		return "unfreeze cleared the offer early"
+	g.run.shop[3] = {"def_id": "___keep", "frozen": true}
+	g.run.shop[1] = {"def_id": "___drop", "frozen": false}
+	g.reroll()
+	if g.run.shop.size() != slots:
+		return "reroll ate a slot"
+	if str(g.run.shop[3].def_id) != "___keep" or not bool(g.run.shop[3].frozen):
+		return "reroll moved the frozen slot"
+	if str(g.run.shop[1].def_id) == "___drop":
+		return "unfrozen slot stuck after reroll"
 	return ""
 
 

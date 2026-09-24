@@ -250,7 +250,7 @@ func enter_node(id: String) -> void:
 	var kind := str(node.type)
 	if kind == "shop":
 		run.rerolls = 0
-		run.shop = []
+		# Frozen offers stay in their slots across the fight. roll_shop replaces the rest.
 		var paid := interest_for(int(run.coins))
 		if paid > 0:
 			run.coins += paid
@@ -361,8 +361,10 @@ func toggle_freeze(i: int) -> void:
 		return
 	if str(run.shop[i].def_id) == "":
 		return
-	run.shop[i].frozen = not bool(run.shop[i].frozen)
-	if bool(run.shop[i].frozen):
+	var slot: Dictionary = run.shop[i]
+	var frozen := not bool(slot.get("frozen", false))
+	run.shop[i] = {"def_id": str(slot.def_id), "frozen": frozen}
+	if frozen:
 		_advance_stall("freeze")
 	changed.emit()
 
@@ -560,8 +562,7 @@ func discover(def_id: String) -> void:
 
 
 func roll_shop(teach: bool) -> void:
-	if run.shop.is_empty():
-		run.shop = _empty_shop()
+	_fit_shop_slots()
 	var node := current_node()
 	var tier := str(int(node.get("shop_tier", 1)))
 	var odds: Dictionary = economy["SHOP_ODDS"][tier]
@@ -571,6 +572,7 @@ func roll_shop(teach: bool) -> void:
 	for i in run.shop.size():
 		var slot: Dictionary = run.shop[i]
 		if bool(slot.get("frozen", false)) and str(slot.get("def_id", "")) != "":
+			run.shop[i] = {"def_id": str(slot.def_id), "frozen": true}
 			continue
 		var picked := ""
 		if i == 0 and teach_id != "":
@@ -579,6 +581,23 @@ func roll_shop(teach: bool) -> void:
 		else:
 			picked = _roll_def(odds)
 		run.shop[i] = {"def_id": picked, "frozen": false}
+
+
+func _fit_shop_slots() -> void:
+	var slots := econ("SHOP_SLOTS")
+	var old: Array = run.shop
+	if old.size() == slots:
+		return
+	var next: Array = []
+	next.resize(slots)
+	for i in slots:
+		var kept := {"def_id": "", "frozen": false}
+		if i < old.size():
+			var slot: Dictionary = old[i]
+			if bool(slot.get("frozen", false)) and str(slot.get("def_id", "")) != "":
+				kept = {"def_id": str(slot.def_id), "frozen": true}
+		next[i] = kept
+	run.shop = next
 
 
 func _end_run(won: bool, line: String) -> void:
