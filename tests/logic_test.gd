@@ -35,6 +35,7 @@ func _main() -> void:
 		["wild_with_buddies", _test_wild_win],
 		["boss_with_spike", _test_boss_win],
 		["defeat_line", _test_defeat_line],
+		["roles", _test_roles],
 		["unlock_on_loss", _test_unlock],
 	]
 	for item in tests:
@@ -104,6 +105,7 @@ func _test_economy() -> String:
 		"BOARD_W", "BOARD_H", "BOARD_SOFT_CAP", "LEAF_BUDDY_ARMOR",
 		"EMBER_BUDDY_DAMAGE", "PUFF_BUDDY_REGEN", "EVENT_COIN_GIFT",
 		"COMBAT_MAX_ROUNDS", "ENEMY_X_OFFSET",
+		"ROLE_OFF_RANK_NUM", "ROLE_OFF_RANK_DEN",
 	]
 	for k in keys:
 		if not g.economy.has(k):
@@ -356,7 +358,7 @@ func _test_boss_summons() -> String:
 	var sim = CombatSim.new()
 	var hero = {
 		"uid": 1, "name": "Hammer", "family": "beast", "hp": 500, "max_hp": 500,
-		"atk": 40, "armor": 50, "pos": Vector2i(1, 1),
+		"atk": 40, "armor": 50, "role": "ranged", "pos": Vector2i(1, 1),
 	}
 	var defs = {
 		"dummy": {"name": "Meadow Matron", "family": "leaf", "hp": 100, "atk": 1, "armor": 0, "boss": true},
@@ -434,6 +436,23 @@ func _test_combat_floats() -> String:
 		return "elite clarity tokens missing"
 	if tokens.clarity_texture("sprig") == null or tokens.clarity_texture("driftkin") == null:
 		return "sprig or driftkin token missing"
+	if tokens.species_mark("leaf", "sprout", 1) == tokens.species_mark("leaf", "bud", 1):
+		return "budmite shares sproutling"
+	if tokens.species_mark("leaf", "dew", 1) == "" or tokens.species_mark("leaf", "dew", 1) == tokens.species_mark("leaf", "sprout", 1):
+		return "dewcap shares sproutling"
+	if tokens.species_mark("ember", "wick", 1) == tokens.species_mark("ember", "spark", 1):
+		return "wicklet shares sparkpup"
+	if tokens.species_mark("ember", "cinder", 1) == tokens.species_mark("ember", "spark", 1):
+		return "cinderkit shares sparkpup"
+	if tokens.species_mark("puff", "nimbus", 1) == tokens.species_mark("puff", "cotton", 1):
+		return "nimbusling shares cottonwisp"
+	if tokens.species_mark("puff", "fluff", 1) == tokens.species_mark("puff", "cotton", 1):
+		return "fluffball shares cottonwisp"
+	for mark in ["sproutling", "budmite", "dewcap", "wicklet", "cinderkit", "nimbusling", "fluffball", "thornbud", "stormpillow"]:
+		if tokens.clarity_texture(mark) == null:
+			return "shop line token missing " + mark
+	if tokens.species_mark("leaf", "bud", 2) != "mossguard" or tokens.species_mark("puff", "cotton", 3) != "stormpillow":
+		return "line did not continue past T1"
 	return ""
 
 
@@ -564,6 +583,93 @@ func _test_boss_win() -> String:
 	return _fight(units, "meadow_matron", true, "boss spike")
 
 
+func _test_roles() -> String:
+	var counts := {"leaf": {"melee": 0, "ranged": 0}, "ember": {"melee": 0, "ranged": 0}, "puff": {"melee": 0, "ranged": 0}}
+	for id in g.critter_order:
+		var c: Dictionary = g.critters[id]
+		var role := str(c.get("role", ""))
+		if role != "melee" and role != "ranged":
+			return "bad role " + str(id)
+		counts[str(c.family)][role] = int(counts[str(c.family)][role]) + 1
+	for fam in counts.keys():
+		if int(counts[fam].melee) < 1 or int(counts[fam].ranged) < 1:
+			return fam + " missing a role"
+	if str(g.critters["sproutling"].role) != "melee" or str(g.critters["budmite"].role) != "ranged":
+		return "leaf split"
+	if str(g.critters["sparkpup"].role) != "ranged" or str(g.critters["wicklet"].role) != "melee":
+		return "ember split"
+	if str(g.critters["cottonwisp"].role) != "ranged" or str(g.critters["fluffball"].role) != "melee":
+		return "puff split"
+	var melee_back := _role_hit("melee", 0)
+	var melee_mid := _role_hit("melee", 1)
+	if melee_back >= melee_mid:
+		return "melee back %d should be softer than mid %d" % [melee_back, melee_mid]
+	var ranged_front := _role_hit("ranged", 2)
+	var ranged_back := _role_hit("ranged", 0)
+	if ranged_front >= ranged_back:
+		return "ranged front %d should be softer than back %d" % [ranged_front, ranged_back]
+	var defs := {
+		"front": {"name": "Front", "family": "beast", "hp": 80, "atk": 0, "armor": 0, "role": "melee"},
+		"back": {"name": "Back", "family": "beast", "hp": 10, "atk": 0, "armor": 0, "role": "melee"},
+	}
+	var spots: Array = [{"def": "front", "x": 0, "y": 2}, {"def": "back", "x": 2, "y": 0}]
+	if _role_aim("melee", Vector2i(2, 0), spots, defs) != "front":
+		return "melee left the front line"
+	if _role_aim("ranged", Vector2i(2, 0), spots, defs) != "back":
+		return "ranged ignored lowest hp"
+	var nip := {"nip": {"name": "Nip", "family": "beast", "hp": 40, "atk": 8, "armor": 0, "role": "melee"}}
+	var sim := CombatSim.new()
+	sim.setup([
+		{"uid": 1, "name": "Tank", "family": "leaf", "hp": 40, "max_hp": 40, "atk": 0, "armor": 0, "role": "melee", "pos": Vector2i(2, 1)},
+		{"uid": 2, "name": "Spit", "family": "puff", "hp": 40, "max_hp": 40, "atk": 0, "armor": 0, "role": "ranged", "pos": Vector2i(2, 0)},
+	], {"units": [{"def": "nip", "x": 0, "y": 1}]}, nip, g.economy)
+	sim.step()
+	var tank_hp := -1
+	var spit_hp := -1
+	for u in sim.allies:
+		if str(u.name) == "Tank":
+			tank_hp = int(u.hp)
+		if str(u.name) == "Spit":
+			spit_hp = int(u.hp)
+	if spit_hp >= 40 or tank_hp < 40:
+		return "enemy melee skipped front ranged (%d / %d)" % [spit_hp, tank_hp]
+	var fallen: Array = [_fighter("cottonwisp", 2, 1)]
+	var loss: CombatSim = _sim(fallen, "meadow_matron")
+	var guard := 0
+	while not loss.over and guard < 40:
+		loss.step()
+		guard += 1
+	if loss.player_won or loss.defeat_reason() != "Ranged in front melted":
+		return "front ranged reason [" + loss.defeat_reason() + "]"
+	return ""
+
+
+func _role_hit(role: String, x: int) -> int:
+	var sim := CombatSim.new()
+	var hero := {
+		"uid": 1, "name": "H", "family": "leaf", "hp": 50, "max_hp": 50,
+		"atk": 10, "armor": 0, "role": role, "pos": Vector2i(x, 1),
+	}
+	var defs := {"blob": {"name": "Blob", "family": "beast", "hp": 40, "atk": 0, "armor": 0, "role": "melee"}}
+	sim.setup([hero], {"units": [{"def": "blob", "x": 0, "y": 1}]}, defs, g.economy)
+	sim.step()
+	return 40 - int(sim.enemies[0].hp)
+
+
+func _role_aim(role: String, pos: Vector2i, spots: Array, defs: Dictionary) -> String:
+	var sim := CombatSim.new()
+	var hero := {
+		"uid": 1, "name": "H", "family": "leaf", "hp": 80, "max_hp": 80,
+		"atk": 10, "armor": 20, "role": role, "pos": pos,
+	}
+	sim.setup([hero], {"units": spots}, defs, g.economy)
+	sim.step()
+	for e in sim.enemies:
+		if int(e.hp) < int(e.max_hp):
+			return str(e.def_id)
+	return ""
+
+
 func _test_defeat_line() -> String:
 	var lone: Array = [_fighter("cottonwisp", 1, 1)]
 	var sim = _sim(lone, "meadow_matron")
@@ -669,6 +775,12 @@ func _test_ui() -> String:
 	var center = main.find_child("Board4", true, false)
 	if center == null or int(center.get("unit_uid")) < 0:
 		return "starter not on the board slot"
+	var badge: Node = center.find_child("RoleBadge", true, false)
+	if badge == null or str(badge.get("kind")) != "melee":
+		return "starter role badge"
+	var heads: Node = main.find_child("RankHeads", true, false)
+	if heads == null or not _text_has(heads, "Front") or not _text_has(heads, "Back"):
+		return "rank headers"
 	if not center.has_method("_get_drag_data") or not center.has_method("_drop_data"):
 		return "board slot is not drag-drop"
 	var sell: Node = main.find_child("SellZone", true, false)

@@ -32,7 +32,7 @@ godot --headless --path . -s res://tests/logic_test.gd
 3. The **Meadow Stall** opens next. Buy, Freeze, Reroll, and sell. A copy of something you already own is in the first slot.
 4. Two copies do nothing. They show **2/3**. The third copy evolves on the spot — the cell pops, and a one-line banner names the new tier.
 5. Drag critters between the bench and the board. Drag onto the red Sell tag to sell. The board holds at most **7** critters.
-6. Put matching families on orthogonal neighbours (not diagonals). A glow links them. The tile still shows the bonus: Leaf armour, Ember damage, Puff regen.
+6. Put matching families on orthogonal neighbours (not diagonals). A glow links them. The tile still shows the bonus: Leaf armour, Ember damage, Puff regen. The columns face the other board: Back, Mid, Front. Melee hits fully from Front and Mid, and half from Back. Ranged is the reverse. Enemy melee picks off a ranged critter standing in Front.
 7. Clear fights to earn coins. The path is Sparring → Stall → Wild Grass → a fork (shop or elite) → a picnic → Bramble → the last stall → the Meadow Matron.
 8. The Matron calls Sprig adds twice. An Ember evolve splashes them.
 9. A wipe ends the run. The defeat screen is one line, then **Retry**. Dex ticks and the new egg-line stay.

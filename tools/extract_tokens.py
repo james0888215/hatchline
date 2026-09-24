@@ -54,6 +54,36 @@ ELITE_BOXES = [
     ("puff_driftkin", (748, 458, 1010, 556)),
 ]
 
+# Sheet 08 heroes. Captions and the 3-copy grids stay out.
+SHOP_T1_BOXES = [
+    ("leaf_sproutling", (270, 74, 402, 184)),
+    ("leaf_dewcap", (590, 96, 710, 184)),
+    ("leaf_budmite", (926, 80, 1030, 188)),
+    ("ember_sparkpup", (270, 298, 402, 398)),
+    ("ember_wicklet", (618, 286, 684, 402)),
+    ("ember_cinderkit", (908, 318, 1028, 400)),
+    ("puff_cottonwisp", (266, 508, 408, 590)),
+    ("puff_nimbusling", (578, 526, 726, 590)),
+    ("puff_fluffball", (912, 502, 1036, 622)),
+]
+
+# One center mark from each sheet 09 panel. Cloudbud, Driftkin, and Cumulon
+# already have locked crops from sheets 06 and 07.
+SHOP_LINE_BOXES = [
+    ("leaf_thornbud", (116, 218, 172, 263)),
+    ("leaf_elderthorn", (363, 216, 416, 263)),
+    ("leaf_canopykin", (606, 220, 663, 262)),
+    ("leaf_mossguard", (851, 222, 908, 263)),
+    ("leaf_grovewarden", (1099, 222, 1153, 264)),
+    ("ember_foxfire", (117, 413, 172, 449)),
+    ("ember_infernox", (363, 407, 416, 453)),
+    ("ember_emberfox", (606, 411, 667, 452)),
+    ("ember_pyrelord", (851, 412, 908, 452)),
+    ("ember_blazetail", (1096, 412, 1155, 453)),
+    ("puff_stormpillow", (363, 594, 413, 635)),
+    ("puff_skyloom", (852, 595, 904, 637)),
+]
+
 
 def key_paper(rgba: np.ndarray) -> np.ndarray:
     """Drop the paper background. Body fills stay (mint, peach, cream, rose)."""
@@ -147,6 +177,18 @@ def main() -> None:
     elites = LOCK / "07-token-clarity-elites.png"
     for name, box in ELITE_BOXES:
         img = cut_clarity(elites, box)
+        dest = OUT / f"{name}.png"
+        img.save(dest)
+        print(f"{dest.name} {img.size}")
+    shop_t1 = LOCK / "08-shop-line-clarity-t1.png"
+    for name, box in SHOP_T1_BOXES:
+        img = cut_clarity(shop_t1, box)
+        dest = OUT / f"{name}.png"
+        img.save(dest)
+        print(f"{dest.name} {img.size}")
+    shop_lines = LOCK / "09-shop-line-clarity-t2t3.png"
+    for name, box in SHOP_LINE_BOXES:
+        img = cut_clarity(shop_lines, box)
         dest = OUT / f"{name}.png"
         img.save(dest)
         print(f"{dest.name} {img.size}")
