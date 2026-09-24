@@ -990,7 +990,7 @@ func note_sell_once() -> void:
 	_save_profile()
 	if run == null:
 		return
-	var hint := "Drag a critter onto Sell."
+	var hint := "Drag a critter here to sell."
 	if str(run.toast) == "":
 		run.toast = hint
 	elif hint not in str(run.toast):
