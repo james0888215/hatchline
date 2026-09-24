@@ -13,6 +13,8 @@ const MEADOW := preload("res://scripts/meadow_wash.gd")
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
 const TITLE_TEXTURE_CHOICE := "B"
 const TITLE_LOGO_PX := 512
+# Hills on texture B start about 44–48% down a 720px frame. The nav stays above that.
+const TITLE_NAV_CEILING := 0.42
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
 const FLOURISH_TITLE := TITLE_ART_DIR + "/flourish-title-underlay-1280x800.png"
@@ -309,8 +311,8 @@ func _build_start(page: VBoxContainer) -> void:
 
 
 func _build_title_menu(page: VBoxContainer) -> void:
-	# Logo and the three buttons stay in the cream sky. The meadow is the lower third.
-	page.add_child(_v_spacer(false, 36.0))
+	# Logo and Play / Hatch-dex / Options stay in the cream sky, above TITLE_NAV_CEILING.
+	page.add_child(_v_spacer(false, 16.0))
 	page.add_child(_title_mark())
 	page.add_child(_dex_status())
 	page.add_child(_v_spacer(false, 18.0))

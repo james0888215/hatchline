@@ -1658,6 +1658,13 @@ func _title_menu_err(main: Node) -> String:
 		return "title nav weights differ"
 	if play.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
 		return "play button stretches"
+	var view_h := play.get_viewport_rect().size.y
+	if view_h > 1.0:
+		var ui = load("res://scripts/main.gd")
+		var ceiling := float(ui.TITLE_NAV_CEILING) * view_h
+		for nav_btn in [play, dex, options]:
+			if nav_btn.get_global_rect().end.y > ceiling:
+				return "title buttons sit below the cream sky"
 	if dex.size_flags_horizontal != Control.SIZE_SHRINK_CENTER or options.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
 		return "title nav stretches"
 	var play_box := play.get_theme_stylebox("normal")
