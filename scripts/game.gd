@@ -5,6 +5,10 @@ const CRITTER_PATH := "res://data/critters.json"
 const CIRCUIT_PATH := "res://data/circuit.json"
 const ENCOUNTER_PATH := "res://data/encounters.json"
 const PROFILE_PATH := "user://profile.json"
+# Soft prep hint. The loss line stays "Melee in the back barely reached".
+const MELEE_BACK_TOAST := "Melee in the back barely reaches — Front is open."
+# Backstop when a clean starter leaves the first stall still short of 3.
+const STALL_TRIPLE_TOAST := "Stall finished the %s triple."
 
 signal changed
 
@@ -233,6 +237,7 @@ func choose_starter(def_id: String) -> void:
 	_make_run()
 	var u := make_unit(def_id)
 	run.board[int(run.board.size() / 2)] = u
+	run.starter_id = def_id
 	discover(def_id)
 	var line := str(critters[def_id].line)
 	if line in profile.new_lines:
@@ -275,7 +280,15 @@ func leave_node() -> void:
 	var nxt: Array = node.get("next", [])
 	if nxt.is_empty():
 		return
+	var note := _force_starter_triple()
 	enter_node(str(nxt[0]))
+	if note == "":
+		return
+	if str(run.toast) == "":
+		run.toast = note
+	else:
+		run.toast = note + "   ·   " + str(run.toast)
+	changed.emit()
 
 
 func choose(i: int) -> void:
@@ -400,6 +413,7 @@ func handle_drop(zone: String, index: int, data: Dictionary) -> void:
 	_set_at(str(from.zone), int(from.index), dest)
 	_set_at(zone, index, moving)
 	run.toast = ""
+	_note_melee_back(moving, from, zone, index)
 	_after_units_changed()
 
 
@@ -571,21 +585,98 @@ func roll_shop(teach: bool) -> void:
 	var node := current_node()
 	var tier := str(int(node.get("shop_tier", 1)))
 	var odds: Dictionary = economy["SHOP_ODDS"][tier]
+	# Opening roll only. A reroll spends the coin that would have bought the last copy.
+	var teach_left := 0
 	var teach_id := ""
-	if teach and bool(node.get("teach_copy", false)):
-		teach_id = _teach_copy_id()
+	if teach:
+		teach_left = _teach_copy_count(node)
+		if teach_left > 0:
+			teach_id = _teach_copy_id()
+		if teach_id == "":
+			teach_left = 0
 	for i in run.shop.size():
 		var slot: Dictionary = run.shop[i]
 		if bool(slot.get("frozen", false)) and str(slot.get("def_id", "")) != "":
 			run.shop[i] = {"def_id": str(slot.def_id), "frozen": true}
 			continue
 		var picked := ""
-		if i == 0 and teach_id != "":
+		if teach_left > 0:
 			picked = teach_id
-			teach_id = ""
+			teach_left -= 1
 		else:
 			picked = _roll_def(odds)
 		run.shop[i] = {"def_id": picked, "frozen": false}
+
+
+func _teach_copy_count(node: Dictionary) -> int:
+	return maxi(0, int(node.get("teach_copies", 0)))
+
+
+func _force_starter_triple() -> String:
+	if not bool(current_node().get("force_starter_triple", false)):
+		return ""
+	var id := _clean_starter_id()
+	if id == "":
+		return ""
+	var need := 3 - copy_count(id)
+	if need <= 0 or need >= 3:
+		return ""
+	for _i in need:
+		if not _grant_copy(id):
+			return ""
+	resolve_merges()
+	var evo := str(critters[id].get("evolves_to", ""))
+	if evo == "" or copy_count(evo) < 1:
+		return ""
+	return STALL_TRIPLE_TOAST % str(critters[id].name)
+
+
+func _clean_starter_id() -> String:
+	var picked := str(run.get("starter_id", ""))
+	if picked != "":
+		if _starter_needs_triple(picked):
+			return picked
+		return ""
+	var found := ""
+	for u in all_units():
+		var id := str(u.def_id)
+		if not _starter_needs_triple(id):
+			continue
+		if found != "" and found != id:
+			return ""
+		found = id
+	return found
+
+
+func _starter_needs_triple(def_id: String) -> bool:
+	if not critters.has(def_id):
+		return false
+	var c: Dictionary = critters[def_id]
+	if not bool(c.get("starter", false)) or int(c.tier) != 1:
+		return false
+	if str(c.get("evolves_to", "")) == "":
+		return false
+	var n := copy_count(def_id)
+	if n <= 0 or n >= 3:
+		return false
+	var line := str(c.line)
+	for u in all_units():
+		if str(u.line) == line and int(u.tier) > 1:
+			return false
+	return true
+
+
+func _grant_copy(def_id: String) -> bool:
+	var u := make_unit(def_id)
+	var idx := _first_empty(run.bench)
+	if idx >= 0:
+		run.bench[idx] = u
+		return true
+	idx = _first_empty(run.board)
+	if idx >= 0:
+		run.board[idx] = u
+		return true
+	return false
 
 
 func _fit_shop_slots() -> void:
@@ -621,6 +712,7 @@ func _end_run(won: bool, line: String) -> void:
 
 
 func _finish_profile(won: bool) -> String:
+	# Budmite opens on any finished run. A loss is enough — do not require a win or the day-1 triple.
 	profile.runs = int(profile.runs) + 1
 	if won:
 		profile.wins = int(profile.wins) + 1
@@ -709,6 +801,37 @@ func _combat_player_units() -> Array:
 	return out
 
 
+func board_column(index: int) -> int:
+	return posmod(index, econ("BOARD_W"))
+
+
+func column_empty(column: int) -> bool:
+	if run == null:
+		return true
+	var w := econ("BOARD_W")
+	for i in run.board.size():
+		if posmod(i, w) != column:
+			continue
+		if run.board[i] != null:
+			return false
+	return true
+
+
+func _note_melee_back(unit, from: Dictionary, zone: String, index: int) -> void:
+	if zone != "board" or unit == null or run == null:
+		return
+	if str(unit.get("role", "")) != "melee":
+		return
+	var w := econ("BOARD_W")
+	if w <= 1 or board_column(index) != 0:
+		return
+	if str(from.get("zone", "")) == "board" and board_column(int(from.index)) == 0:
+		return
+	if not column_empty(w - 1):
+		return
+	run.toast = MELEE_BACK_TOAST
+
+
 func _teach_copy_id() -> String:
 	var options: Array = []
 	var seen := {}
@@ -791,6 +914,7 @@ func _make_run() -> void:
 		"seed": randi() % 1000000,
 		"new_dex": [],
 		"result": {},
+		"starter_id": "",
 	}
 	seed(int(run.seed))
 
