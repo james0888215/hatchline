@@ -41,6 +41,8 @@ BEAST_BOX = ("05-combat-mock.png", "beast_t1", (1068, 168, 1210, 270))
 # Sheet 12. Dusty mauve / cooler wild rose. Not candy pink, not ember peach.
 # Driftkin is powder blue on sheet 07 and is not in this list.
 WILD_MAUVE = (162, 112, 136)  # #a27088
+# Sprig twin leaves stay green so the mark survives the mauve body.
+SPRIG_LEAF = (106, 174, 64)  # #6aae40
 WILD_TINT_FILES = (
     "mite_meadow",
     "mite_tired",
@@ -227,6 +229,38 @@ def tint_wild() -> None:
         print(f"tint {path.name} {changed}")
 
 
+def green_sprig_leaves() -> None:
+    """Sheet 12. Twin sprigs above the capsule are green. The mauve body stays."""
+    path = OUT / "beast_sprig.png"
+    arr = np.array(Image.open(path).convert("RGBA"))
+    alpha = arr[:, :, 3] > 80
+    h, w = alpha.shape
+    spans = []
+    max_span = 0
+    for y in range(h):
+        xs = np.where(alpha[y])[0]
+        span = 0 if len(xs) == 0 else int(xs[-1] - xs[0] + 1)
+        spans.append(span)
+        max_span = max(max_span, span)
+    body_y = next(y for y, span in enumerate(spans) if span >= int(max_span * 0.62))
+    tr, tg, tb = SPRIG_LEAF
+    tl = (0.2126 * tr + 0.7152 * tg + 0.0722 * tb) / 255.0
+    painted = 0
+    for y in range(body_y):
+        for x in range(w):
+            r, g, b, a = (int(v) for v in arr[y, x])
+            if a < 8 or max(r, g, b) < 90:
+                continue
+            lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+            scale = max(0.35, min(1.15, lum / tl))
+            arr[y, x, 0] = int(min(255, tr * scale))
+            arr[y, x, 1] = int(min(255, tg * scale))
+            arr[y, x, 2] = int(min(255, tb * scale))
+            painted += 1
+    Image.fromarray(arr).save(path)
+    print(f"sprig leaves {painted} above row {body_y}")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for sheet, items in SHEET_BOXES.items():
@@ -265,6 +299,7 @@ def main() -> None:
         img.save(dest)
         print(f"{dest.name} {img.size}")
     tint_wild()
+    green_sprig_leaves()
 
 
 if __name__ == "__main__":

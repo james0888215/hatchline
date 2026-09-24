@@ -687,6 +687,8 @@ func _test_sheet_art() -> String:
 			return "%s still candy bright %s" % [mark, tone]
 	if _green_count(tokens.clarity_texture("meadow")) < 80:
 		return "meadow sprout was recolored"
+	if _green_count(tokens.clarity_texture("sprig")) < 40:
+		return "sprig leaves are not green"
 	var drift := _body_mean(tokens.clarity_texture("driftkin"))
 	if drift.b < drift.r or drift.g < drift.r:
 		return "driftkin lost powder blue %s" % drift
