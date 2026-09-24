@@ -24,7 +24,7 @@
       "type": "fight",
       "title": "Sparring",
       "encounter": "sparring_pups",
-      "reward": 4,
+      "reward": 1,
       "next": ["shop_a"]
     },
     {

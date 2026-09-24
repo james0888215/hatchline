@@ -228,9 +228,7 @@ func blank_run() -> void:
 
 
 func choose_starter(def_id: String) -> void:
-	if not critters.has(def_id):
-		return
-	if str(critters[def_id].line) not in profile.unlocked_lines:
+	if def_id not in starter_ids():
 		return
 	_make_run()
 	var u := make_unit(def_id)
@@ -332,6 +330,10 @@ func buy(i: int) -> void:
 	discover(str(card.def_id))
 	run.shop[i] = {"def_id": "", "frozen": false}
 	run.toast = "Bought %s" % u.name
+	var line := str(def.line)
+	if line in profile.new_lines:
+		profile.new_lines.erase(line)
+		_save_profile()
 	_after_units_changed()
 
 
@@ -602,7 +604,7 @@ func _finish_profile(won: bool) -> String:
 		profile.unlocked_lines.append(line)
 		if line not in profile.new_lines:
 			profile.new_lines.append(line)
-		msg = "New egg-line: %s.\nOn the starter row next run." % str(circuit.meta.unlock_name)
+		msg = "New egg-line: %s.\nIt shows up in the shop." % str(circuit.meta.unlock_name)
 	_save_profile()
 	return msg
 

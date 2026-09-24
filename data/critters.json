@@ -7,7 +7,7 @@
     {"id": "dewcap", "name": "Dewcap", "family": "leaf", "line": "dew", "tier": 1, "evolves_to": "canopykin", "hp": 46, "atk": 6, "armor": 3, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Soft cap, firm stance."},
     {"id": "canopykin", "name": "Canopykin", "family": "leaf", "line": "dew", "tier": 2, "evolves_to": "", "hp": 106, "atk": 13, "armor": 7, "regen": 0, "thorns": 3, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Shade with a temper."},
 
-    {"id": "budmite", "name": "Budmite", "family": "leaf", "line": "bud", "tier": 1, "evolves_to": "mossguard", "hp": 38, "atk": 8, "armor": 1, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": true, "blurb": "A locked egg, until it isn't."},
+    {"id": "budmite", "name": "Budmite", "family": "leaf", "line": "bud", "tier": 1, "evolves_to": "mossguard", "hp": 38, "atk": 8, "armor": 1, "regen": 0, "thorns": 0, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "A locked egg, until it isn't."},
     {"id": "mossguard", "name": "Mossguard", "family": "leaf", "line": "bud", "tier": 2, "evolves_to": "grovewarden", "hp": 88, "atk": 17, "armor": 3, "regen": 0, "thorns": 3, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "Velvet, then bramble."},
     {"id": "grovewarden", "name": "Grovewarden", "family": "leaf", "line": "bud", "tier": 3, "evolves_to": "", "hp": 190, "atk": 36, "armor": 8, "regen": 0, "thorns": 8, "splash": 0, "burn": 0, "mend": "", "starter": false, "blurb": "The grove stands up."},
 
