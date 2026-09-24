@@ -149,6 +149,7 @@ static func present(family: String, tier: int, max_h: float, boss: bool = false,
 	token.name = "Capsule"
 	var box := Control.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var sz := token.custom_minimum_size
 	box.custom_minimum_size = sz
 	box.size = sz
@@ -168,18 +169,43 @@ static func present(family: String, tier: int, max_h: float, boss: bool = false,
 	return box
 
 
+static var _mips: Dictionary = {}
+
+
+static func _filtered(tex: Texture2D, w: int, h: int) -> Texture2D:
+	if tex == null:
+		return null
+	var path := tex.resource_path
+	if path == "":
+		path = str(tex.get_rid())
+	var key := "%s@%dx%d" % [path, w, h]
+	if _mips.has(key):
+		return _mips[key]
+	var img := tex.get_image()
+	if img == null:
+		return tex
+	img = img.duplicate()
+	if img.get_width() != w or img.get_height() != h:
+		img.resize(maxi(1, w), maxi(1, h), Image.INTERPOLATE_LANCZOS)
+	if not img.has_mipmaps():
+		img.generate_mipmaps()
+	var out := ImageTexture.create_from_image(img)
+	_mips[key] = out
+	return out
+
+
 static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
 	var rect := TextureRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# Resample to the drawn size, then keep mips for the fight squash and window scale.
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var tex := clarity_texture(mark)
 	if tex == null:
 		tex = texture(family, tier)
 	var aspect := 1.35
 	if tex != null:
-		rect.texture = tex
 		aspect = float(tex.get_width()) / float(maxi(1, tex.get_height()))
 	var known := family == "leaf" or family == "ember" or family == "puff"
 	var h := max_h
@@ -207,7 +233,12 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	if w > max_w:
 		w = max_w
 		h = w / aspect
+	w = maxf(1.0, roundf(w))
+	h = maxf(1.0, roundf(h))
+	if tex != null:
+		rect.texture = _filtered(tex, int(w), int(h))
 	rect.custom_minimum_size = Vector2(w, h)
+	rect.size = Vector2(w, h)
 	rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return rect

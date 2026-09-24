@@ -30,6 +30,8 @@ func _main() -> void:
 		["boss_summons", _test_boss_summons],
 		["shop_teach_and_buy", _test_shop],
 		["reroll_freeze_interest", _test_reroll_interest],
+		["freeze_survives_fight", _test_freeze_survives_fight],
+		["sell_drag", _test_sell_drag],
 		["soft_cap_and_sell", _test_soft_cap_sell],
 		["sparring_win", _test_sparring],
 		["wild_with_buddies", _test_wild_win],
@@ -453,6 +455,13 @@ func _test_combat_floats() -> String:
 			return "shop line token missing " + mark
 	if tokens.species_mark("leaf", "bud", 2) != "mossguard" or tokens.species_mark("puff", "cotton", 3) != "stormpillow":
 		return "line did not continue past T1"
+	var cap: TextureRect = tokens.make("leaf", 1, 64.0, false, "sproutling", "melee")
+	if cap.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
+		return "fight token filter"
+	if cap.texture == null or not cap.texture.get_image().has_mipmaps():
+		return "fight token mipmaps"
+	if cap.custom_minimum_size != cap.custom_minimum_size.round():
+		return "fight token is off a pixel"
 	return ""
 
 
@@ -503,6 +512,90 @@ func _test_reroll_interest() -> String:
 	var step = g.econ("REROLL_SCALE_STEP")
 	if g.reroll_cost() != base + step:
 		return "cost did not scale"
+	return ""
+
+
+func _test_freeze_survives_fight() -> String:
+	g.blank_run()
+	g.run.coins = 40
+	g.enter_node("shop_a")
+	var slots := int(g.econ("SHOP_SLOTS"))
+	if g.run.shop.size() != slots:
+		return "opening slot count %d" % g.run.shop.size()
+	g.run.shop[1] = {"def_id": "dewcap", "frozen": false}
+	g.toggle_freeze(1)
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "freeze did not stick"
+	g.toggle_freeze(1)
+	if bool(g.run.shop[1].frozen):
+		return "unfreeze did not stick"
+	g.toggle_freeze(1)
+	g.run.shop[0] = {"def_id": "sproutling", "frozen": true}
+	g.run.shop[2] = {"def_id": "___sentinel", "frozen": false}
+	g.buy(0)
+	if g.run.shop.size() != slots:
+		return "buy ate a shop slot"
+	if str(g.run.shop[0].def_id) != "" or bool(g.run.shop[0].frozen):
+		return "bought freeze still holds the slot"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "buy shifted the frozen slot"
+	g.leave_node()
+	if str(g.run.node_id) != "wild_1":
+		return "did not reach the fight prep"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "fight prep cleared the freeze"
+	g.start_combat()
+	g.combat.player_won = true
+	g.combat.over = true
+	g.finish_combat()
+	if g.phase != "choice":
+		return "fight reward should open the fork, got " + g.phase
+	if g.run.shop.size() != slots:
+		return "fight changed the shop size"
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "fight cleared the frozen offer"
+	g.choose(0)
+	if str(g.run.node_id) != "shop_b":
+		return "fork did not open the cart"
+	if g.run.shop.size() != slots:
+		return "next shop slot count %d" % g.run.shop.size()
+	if str(g.run.shop[1].def_id) != "dewcap" or not bool(g.run.shop[1].frozen):
+		return "frozen offer did not survive into the next prep"
+	if str(g.run.shop[0].def_id) == "":
+		return "bought slot was not refilled"
+	if str(g.run.shop[2].def_id) == "___sentinel":
+		return "unfrozen slot was not refreshed"
+	g.toggle_freeze(1)
+	if bool(g.run.shop[1].frozen) or str(g.run.shop[1].def_id) != "dewcap":
+		return "unfreeze cleared the offer early"
+	g.run.shop[3] = {"def_id": "___keep", "frozen": true}
+	g.run.shop[1] = {"def_id": "___drop", "frozen": false}
+	g.reroll()
+	if g.run.shop.size() != slots:
+		return "reroll ate a slot"
+	if str(g.run.shop[3].def_id) != "___keep" or not bool(g.run.shop[3].frozen):
+		return "reroll moved the frozen slot"
+	if str(g.run.shop[1].def_id) == "___drop":
+		return "unfrozen slot stuck after reroll"
+	return ""
+
+
+func _test_sell_drag() -> String:
+	g.blank_run()
+	g.enter_node("sparring_1")
+	var u: Dictionary = _put("bench", 0, "sparkpup")
+	var coins := int(g.run.coins)
+	g.handle_drop("sell", -1, {"uid": int(u.uid)})
+	if g.run.bench[0] != null:
+		return "drag sell left the critter"
+	if int(g.run.coins) != coins + g.econ("SELL_T1"):
+		return "drag sell value"
+	if "Sold" not in str(g.run.toast):
+		return "drag sell toast"
+	var board: Dictionary = _put("board", 2, "dewcap")
+	g.handle_drop("sell", -1, {"uid": int(board.uid)})
+	if g.run.board[2] != null:
+		return "board drag sell left the critter"
 	return ""
 
 
@@ -772,6 +865,9 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "sparring_1":
 		return "pick did not start sparring"
+	var land: Node = main.find_child("ArrivalText", true, false)
+	if land == null or "Sparring" not in str(land.text):
+		return "starter transition beat missing"
 	var center = main.find_child("Board4", true, false)
 	if center == null or int(center.get("unit_uid")) < 0:
 		return "starter not on the board slot"
@@ -786,6 +882,13 @@ func _test_ui() -> String:
 	var sell: Node = main.find_child("SellZone", true, false)
 	if sell == null:
 		return "no sell zone"
+	var hint: Node = sell.find_child("SellHint", true, false)
+	if hint == null or not (hint is Label) or "Drag a critter here" not in str(hint.text):
+		return "sell zone is not a drag target"
+	if not sell.has_method("_can_drop_data") or not sell.has_method("_drop_data"):
+		return "sell zone does not take a drop"
+	if not bool(sell._can_drop_data(Vector2.ZERO, {"uid": int(center.get("unit_uid"))})):
+		return "sell zone rejected a critter"
 	var fight: Node = main.find_child("FightButton", true, false)
 	if fight == null:
 		return "no fight button"
@@ -806,6 +909,11 @@ func _test_ui() -> String:
 	await process_frame
 	if g.phase != "combat":
 		return "fight did not start"
+	var fight_beat: Node = main.find_child("ArrivalText", true, false)
+	if fight_beat == null or str(fight_beat.text) != "Fight":
+		return "fight transition beat missing"
+	if main.tick and not main.tick.is_stopped():
+		return "fight ticked under the beat"
 	var speed: Node = main.find_child("SpeedButton", true, false)
 	if speed == null:
 		return "no speed toggle"
@@ -831,6 +939,9 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "shop_a":
 		return "shop did not open"
+	var reward_beat: Node = main.find_child("ArrivalText", true, false)
+	if reward_beat == null or "clear" not in str(reward_beat.text):
+		return "reward beat missing"
 	var reroll: Node = main.find_child("RerollButton", true, false)
 	var buy: Node = main.find_child("BuyButton0", true, false)
 	if reroll == null or buy == null:
@@ -849,6 +960,16 @@ func _test_ui() -> String:
 	var corner = main.find_child("Board0", true, false)
 	if corner == null or int(corner.get("unit_uid")) < 0:
 		return "drop did not place"
+	var sell_zone: Node = main.find_child("SellZone", true, false)
+	var coins_before := int(g.run.coins)
+	sell_zone._drop_data(Vector2.ZERO, {"uid": int(corner.get("unit_uid"))})
+	await process_frame
+	await process_frame
+	var cleared: Node = main.find_child("Board0", true, false)
+	if cleared == null or int(cleared.get("unit_uid")) >= 0:
+		return "sell drop left the critter"
+	if int(g.run.coins) != coins_before + g.econ("SELL_T1"):
+		return "sell drop paid the wrong amount"
 	if _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
 		return "shop teach wall still up"
 	var stall_teach: Node = main.find_child("TeachLine", true, false)
