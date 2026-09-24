@@ -5,6 +5,8 @@ const CRITTER_PATH := "res://data/critters.json"
 const CIRCUIT_PATH := "res://data/circuit.json"
 const ENCOUNTER_PATH := "res://data/encounters.json"
 const PROFILE_PATH := "user://profile.json"
+# Soft prep hint. The loss line stays "Melee in the back barely reached".
+const MELEE_BACK_TOAST := "Melee in the back barely reaches — Front is open."
 
 signal changed
 
@@ -400,6 +402,7 @@ func handle_drop(zone: String, index: int, data: Dictionary) -> void:
 	_set_at(str(from.zone), int(from.index), dest)
 	_set_at(zone, index, moving)
 	run.toast = ""
+	_note_melee_back(moving, from, zone, index)
 	_after_units_changed()
 
 
@@ -571,21 +574,31 @@ func roll_shop(teach: bool) -> void:
 	var node := current_node()
 	var tier := str(int(node.get("shop_tier", 1)))
 	var odds: Dictionary = economy["SHOP_ODDS"][tier]
+	# Opening roll only. A reroll spends the coin that would have bought the last copy.
+	var teach_left := 0
 	var teach_id := ""
-	if teach and bool(node.get("teach_copy", false)):
-		teach_id = _teach_copy_id()
+	if teach:
+		teach_left = _teach_copy_count(node)
+		if teach_left > 0:
+			teach_id = _teach_copy_id()
+		if teach_id == "":
+			teach_left = 0
 	for i in run.shop.size():
 		var slot: Dictionary = run.shop[i]
 		if bool(slot.get("frozen", false)) and str(slot.get("def_id", "")) != "":
 			run.shop[i] = {"def_id": str(slot.def_id), "frozen": true}
 			continue
 		var picked := ""
-		if i == 0 and teach_id != "":
+		if teach_left > 0:
 			picked = teach_id
-			teach_id = ""
+			teach_left -= 1
 		else:
 			picked = _roll_def(odds)
 		run.shop[i] = {"def_id": picked, "frozen": false}
+
+
+func _teach_copy_count(node: Dictionary) -> int:
+	return maxi(0, int(node.get("teach_copies", 0)))
 
 
 func _fit_shop_slots() -> void:
@@ -707,6 +720,37 @@ func _combat_player_units() -> Array:
 		c.boss = false
 		out.append(c)
 	return out
+
+
+func board_column(index: int) -> int:
+	return posmod(index, econ("BOARD_W"))
+
+
+func column_empty(column: int) -> bool:
+	if run == null:
+		return true
+	var w := econ("BOARD_W")
+	for i in run.board.size():
+		if posmod(i, w) != column:
+			continue
+		if run.board[i] != null:
+			return false
+	return true
+
+
+func _note_melee_back(unit, from: Dictionary, zone: String, index: int) -> void:
+	if zone != "board" or unit == null or run == null:
+		return
+	if str(unit.get("role", "")) != "melee":
+		return
+	var w := econ("BOARD_W")
+	if w <= 1 or board_column(index) != 0:
+		return
+	if str(from.get("zone", "")) == "board" and board_column(int(from.index)) == 0:
+		return
+	if not column_empty(w - 1):
+		return
+	run.toast = MELEE_BACK_TOAST
 
 
 func _teach_copy_id() -> String:

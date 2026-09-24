@@ -61,6 +61,8 @@ const HIT := Color("c4453a")
 const HEAL := Color("2a8a4a")
 const BEAT_HOLD := 0.48
 const BEAT_FADE := 0.2
+const LIVE_LOG_TAIL := 4
+const OPEN_LOG_TAIL := 8
 const LUNGE_PX := 22.0
 const LUNGE_OUT := 0.11
 const LUNGE_BACK := 0.12
@@ -1054,7 +1056,7 @@ func _build_prep(page: VBoxContainer) -> void:
 	if flash:
 		page.add_child(flash)
 	if str(Game.run.toast) != "":
-		page.add_child(_lbl(str(Game.run.toast), 15, GOOD))
+		page.add_child(_toast_line(str(Game.run.toast)))
 	var teach := _teach_line()
 	if teach != "":
 		var teach_lbl := _lbl(teach, 14, MUTED)
@@ -1526,7 +1528,7 @@ func _right_column() -> VBoxContainer:
 		for i in Game.run.shop.size():
 			col.add_child(_shop_card(i))
 		var cost := Game.reroll_cost()
-		var reroll := _btn("Reroll  %d" % cost, Vector2(200, 36))
+		var reroll := _btn(_priced("Reroll", cost), Vector2(200, 36))
 		reroll.name = "RerollButton"
 		reroll.pressed.connect(Game.reroll)
 		col.add_child(reroll)
@@ -1548,7 +1550,7 @@ func _shop_card(i: int) -> Panel:
 	var card: Dictionary = Game.run.shop[i]
 	var panel := Panel.new()
 	var card_h := 76.0 if _has_post_fight_log() else 96.0
-	panel.custom_minimum_size = Vector2(286, card_h)
+	panel.custom_minimum_size = Vector2(300, card_h)
 	var def_id := str(card.def_id)
 	var frozen: bool = bool(card.frozen)
 	var border := Color("7aa2d6") if frozen else Color("cfc6b8")
@@ -1595,8 +1597,10 @@ func _shop_card(i: int) -> Panel:
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actions.add_theme_constant_override("separation", 6)
 	var cost := Game.buy_cost_for_tier(int(c.tier))
-	var buy := _btn("Buy %d" % cost, Vector2(96, 28))
+	var buy := _btn(_priced("Buy", cost), Vector2(108, 28))
 	buy.name = "BuyButton%d" % i
+	buy.add_theme_font_size_override("font_size", 14)
+	buy.clip_text = false
 	buy.disabled = cost > int(Game.run.coins)
 	buy.pressed.connect(Game.buy.bind(i))
 	actions.add_child(buy)
@@ -1996,14 +2000,42 @@ func _log_bar() -> PanelContainer:
 
 func _toggle_log() -> void:
 	log_open = not log_open
-	_apply_log_mode()
+	_refresh_live_log()
 
 
-func _apply_log_mode() -> void:
-	if log_label:
-		log_label.visible = log_open
+func _refresh_live_log() -> void:
+	if log_label == null:
+		return
+	var lines: Array = []
+	if Game.combat != null:
+		lines = Game.combat.log_lines
+	var n := OPEN_LOG_TAIL if log_open else LIVE_LOG_TAIL
+	log_label.text = _format_log_tail(lines, n)
+	# Empty until the first blow, then the latest hits stay up — including at ×2.
+	log_label.visible = log_label.text != ""
 	if log_button:
 		log_button.text = "HIDE LOG" if log_open else "VIEW FULL LOG"
+
+
+func _format_log_tail(lines: Array, n: int) -> String:
+	if lines.is_empty() or n <= 0:
+		return ""
+	var start := maxi(0, lines.size() - n)
+	var out := PackedStringArray()
+	for i in range(start, lines.size()):
+		out.append("•  " + str(lines[i]))
+	return "\n".join(out)
+
+
+func _toast_line(text: String) -> Label:
+	var soft := text == Game.MELEE_BACK_TOAST
+	var lab := _lbl(text, 15, MUTED if soft else GOOD)
+	lab.name = "SoftToast" if soft else "ToastLine"
+	return lab
+
+
+func _priced(verb: String, cost: int) -> String:
+	return "%s · %d" % [verb, cost]
 
 
 func _grid_stage(columns: int, pairs: Array, with_floats: bool) -> Dictionary:
@@ -2042,13 +2074,7 @@ func _sync_combat() -> void:
 	if banner_panel and banner_label:
 		banner_panel.visible = sim.banner != ""
 		banner_label.text = sim.banner
-	if log_label:
-		var start := maxi(0, sim.log_lines.size() - 8)
-		var lines := PackedStringArray()
-		for i in range(start, sim.log_lines.size()):
-			lines.append("•  " + str(sim.log_lines[i]))
-		log_label.text = "\n".join(lines)
-		_apply_log_mode()
+	_refresh_live_log()
 	_retitle_ally_board()
 	var ally_cells := _combat_entries(sim.allies, false)
 	var enemy_cells := _combat_entries(sim.enemies, true)

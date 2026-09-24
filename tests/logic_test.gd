@@ -29,6 +29,8 @@ func _main() -> void:
 		["splash", _test_splash],
 		["boss_summons", _test_boss_summons],
 		["shop_teach_and_buy", _test_shop],
+		["stall_teach_triple", _test_stall_teach_triple],
+		["melee_back_toast", _test_melee_back_toast],
 		["reroll_freeze_interest", _test_reroll_interest],
 		["freeze_survives_fight", _test_freeze_survives_fight],
 		["sell_drag", _test_sell_drag],
@@ -538,8 +540,10 @@ func _test_shop() -> String:
 	_put("board", 4, "sproutling")
 	g.run.coins = 15
 	g.enter_node("shop_a")
-	if str(g.run.shop[0].def_id) != "sproutling":
-		return "teach copy missing, got " + str(g.run.shop[0].def_id)
+	if int(g.current_node().get("teach_copies", 0)) < 2:
+		return "first stall should offer two teach copies"
+	if str(g.run.shop[0].def_id) != "sproutling" or str(g.run.shop[1].def_id) != "sproutling":
+		return "teach copies missing, got %s / %s" % [g.run.shop[0].def_id, g.run.shop[1].def_id]
 	var after_interest = 15 + g.interest_for(15)
 	if int(g.run.coins) != after_interest:
 		return "interest on shop enter"
@@ -724,7 +728,100 @@ func _test_sparring() -> String:
 		return "first stall buys every offer"
 	if purse - price < g.econ("REROLL_COST"):
 		return "no coin left to reroll after one buy"
+	var taught := int(g.current_node().get("teach_copies", 0))
+	if taught < 2:
+		return "first stall teach_copies"
+	for i in taught:
+		if str(g.run.shop[i].def_id) != "sproutling":
+			return "sparring stall teach slot %d is %s" % [i, g.run.shop[i].def_id]
 	print("  sparring rounds ", guard, " coins ", purse)
+	return ""
+
+
+func _test_stall_teach_triple() -> String:
+	# Purse is two T1 buys. A reroll after one buy falls under BUY_T1, so the
+	# opening shop has to hold both remaining starter copies.
+	var before: int = g.econ("STARTING_COINS") + int(g.nodes["sparring_1"].reward)
+	var purse: int = before + int(g.interest_for(before))
+	var price: int = g.econ("BUY_T1")
+	var known: Array = g.profile.discovered.duplicate()
+	if purse < price * 2:
+		return "purse %d cannot buy two T1s" % purse
+	if purse - price - g.econ("REROLL_COST") >= price:
+		return "reroll after one buy can still afford T1; the teach-copy fix is the wrong lever"
+	for starter in ["sproutling", "sparkpup", "cottonwisp"]:
+		g.blank_run()
+		_put("board", int(g.run.board.size() / 2), starter)
+		g.run.coins = before
+		g.enter_node("shop_a")
+		if int(g.run.coins) != purse:
+			return "%s purse %d != %d" % [starter, int(g.run.coins), purse]
+		var copies := int(g.current_node().get("teach_copies", 0))
+		if copies < 2:
+			return "teach_copies"
+		var filler := "dewcap" if starter != "dewcap" else "wicklet"
+		for i in range(copies, g.run.shop.size()):
+			g.run.shop[i] = {"def_id": filler, "frozen": false}
+		for i in copies:
+			if str(g.run.shop[i].def_id) != starter:
+				return "%s teach slot %d is %s" % [starter, i, g.run.shop[i].def_id]
+			g.buy(i)
+		var evo := str(g.critters[starter].evolves_to)
+		if g.copy_count(evo) != 1 or g.copy_count(starter) != 0:
+			return "%s did not triple into %s" % [starter, evo]
+		if str(g.run.node_id) != "shop_a":
+			return "triple left the stall"
+	g.profile.discovered = known
+	g._save_profile()
+	return ""
+
+
+func _test_melee_back_toast() -> String:
+	if Game.MELEE_BACK_TOAST == "Melee in the back barely reached":
+		return "toast replaced the defeat line"
+	if "barely reached" in Game.MELEE_BACK_TOAST:
+		return "toast uses the defeat wording"
+	g.blank_run()
+	g.enter_node("shop_a")
+	var melee: Dictionary = _put("bench", 0, "sproutling")
+	g.handle_drop("board", 0, {"uid": int(melee.uid)})
+	if str(g.run.toast) != Game.MELEE_BACK_TOAST:
+		return "back melee toast [" + str(g.run.toast) + "]"
+	var ranged: Dictionary = _put("bench", 1, "cottonwisp")
+	g.handle_drop("board", 3, {"uid": int(ranged.uid)})
+	if str(g.run.toast) == Game.MELEE_BACK_TOAST:
+		return "ranged on back repeated the melee toast"
+	g.handle_drop("board", 0, {"uid": int(ranged.uid)})
+	if str(g.run.toast) == Game.MELEE_BACK_TOAST:
+		return "rearranging the back row retriggered the toast"
+	var front: Dictionary = _put("bench", 2, "dewcap")
+	g.handle_drop("board", 2, {"uid": int(front.uid)})
+	var again: Dictionary = _put("bench", 0, "thornbud")
+	g.handle_drop("board", 6, {"uid": int(again.uid)})
+	if str(g.run.toast) == Game.MELEE_BACK_TOAST:
+		return "toast fired while Front was occupied"
+	g.handle_drop("sell", -1, {"uid": int(front.uid)})
+	var mid: Dictionary = _put("bench", 0, "sproutling")
+	g.handle_drop("board", 1, {"uid": int(mid.uid)})
+	if str(g.run.toast) == Game.MELEE_BACK_TOAST:
+		return "mid melee toasted"
+	var sim := CombatSim.new()
+	sim.stats = {
+		"fielded": 1,
+		"melee_back_fell": true,
+		"ranged_front_fell": false,
+		"boss": false,
+		"adds_summoned": 0,
+		"had_splash": false,
+		"had_leaf": true,
+		"damage_taken": 0,
+		"damage_dealt": 0,
+		"buddy_links": 1,
+		"had_puff": true,
+		"burn_taken": 0,
+	}
+	if sim.defeat_reason() != "Melee in the back barely reached":
+		return "defeat copy changed [" + sim.defeat_reason() + "]"
 	return ""
 
 
@@ -1519,6 +1616,13 @@ func _test_ui() -> String:
 	var clog: Node = main.find_child("CombatLog", true, false)
 	if clog == null or clog.visible:
 		return "combat log should start collapsed"
+	g.combat_tick()
+	main._sync_combat()
+	await process_frame
+	if g.speed != 2:
+		return "live log was not checked at x2"
+	if not clog.visible or "→" not in str(clog.text):
+		return "live log empty at x2: " + str(clog.text)
 	if main.tick:
 		main.tick.stop()
 	var guard = 0
@@ -1543,6 +1647,10 @@ func _test_ui() -> String:
 	var buy: Node = main.find_child("BuyButton0", true, false)
 	if reroll == null or buy == null:
 		return "shop controls missing"
+	if str(buy.text) != "Buy · %d" % g.econ("BUY_T1"):
+		return "buy label reads as a quantity: " + str(buy.text)
+	if str(reroll.text) != "Reroll · %d" % g.reroll_cost():
+		return "reroll label reads as a quantity: " + str(reroll.text)
 	var bench_before = int(main.find_child("Bench0", true, false).get("unit_uid"))
 	buy.pressed.emit()
 	await process_frame
@@ -1557,6 +1665,11 @@ func _test_ui() -> String:
 	var corner = main.find_child("Board0", true, false)
 	if corner == null or int(corner.get("unit_uid")) < 0:
 		return "drop did not place"
+	var soft: Node = main.find_child("SoftToast", true, false)
+	if soft == null or str(soft.text) != Game.MELEE_BACK_TOAST:
+		return "soft placement toast missing"
+	if "barely reached" in str(soft.text):
+		return "soft toast used the defeat line"
 	var sell_zone: Node = main.find_child("SellZone", true, false)
 	var coins_before := int(g.run.coins)
 	sell_zone._drop_data(Vector2.ZERO, {"uid": int(corner.get("unit_uid"))})
