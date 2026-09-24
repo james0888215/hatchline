@@ -915,6 +915,14 @@ func _test_early_teeth() -> String:
 	err = _fight(pair, "wild_grass", true, "buddy pair wild")
 	if err != "":
 		return err
+	var front: Array = [_fighter("sproutling", 2, 1), _fighter("sproutling", 2, 0)]
+	err = _fight(front, "wild_grass", true, "front column wild")
+	if err != "":
+		return err
+	var back: Array = [_fighter("sproutling", 1, 1), _fighter("sproutling", 0, 1)]
+	err = _fight(back, "wild_grass", false, "back column wild")
+	if err != "":
+		return err
 	return ""
 
 
@@ -1069,6 +1077,14 @@ func _test_ui() -> String:
 	var reason: Node = main.find_child("ResultLine", true, false)
 	if reason == null or "Nothing fielded" not in reason.text:
 		return "result line not on screen"
+	if "\n" in str(reason.text):
+		return "result line should stay one line"
+	var fight_log: Node = main.find_child("FightLogScroll", true, false)
+	if fight_log == null or not fight_log.visible or not (fight_log is ScrollContainer):
+		return "result fight log missing"
+	var fight_text: Node = main.find_child("FightLogText", true, false)
+	if fight_text == null or not fight_text.visible:
+		return "result fight log text missing"
 	var park: Node = main.find_child("ReservePark", true, false)
 	var trail: Node = main.find_child("SeasonTrail", true, false)
 	if park == null or trail == null or not park.disabled or not trail.disabled:
@@ -1095,6 +1111,9 @@ func _test_ui() -> String:
 	await process_frame
 	if g.phase != "start":
 		return "retry did not return to starters"
+	var menu_wash: Node = main.find_child("StarterMeadow", true, false)
+	if menu_wash == null or int(menu_wash.z_index) >= 0:
+		return "menu wash should sit behind the starters"
 	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
 		var card: Node = main.find_child("Starter_%s" % starter_id, true, false)
 		if card == null:
@@ -1111,6 +1130,23 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "sparring_1":
 		return "pick did not start sparring"
+	var page_wash: Node = main.find_child("MeadowWash", true, false)
+	var board_wash: Node = main.find_child("BoardMeadow", true, false)
+	if page_wash == null or int(page_wash.z_index) >= 0:
+		return "prep wash should sit behind the page"
+	if board_wash == null or int(board_wash.z_index) >= 0:
+		return "board wash should sit behind the slots"
+	var grass_step: Node = null
+	for step in main.find_children("PathStep", "Label", true, false):
+		if str(step.text) == "Grass":
+			grass_step = step
+	if grass_step == null:
+		return "path label missing"
+	var ink: Color = grass_step.get_theme_color("font_color")
+	if ink.r > 0.45 or ink.g > ink.r + 0.08:
+		return "path label washed out %s" % ink
+	if grass_step.get_parent() == null or str(grass_step.get_parent().name) != "PathChip":
+		return "path label has no chip"
 	var land: Node = main.find_child("ArrivalText", true, false)
 	if land == null or "Sparring" not in str(land.text):
 		return "starter transition beat missing"
@@ -1185,6 +1221,9 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "shop_a":
 		return "shop did not open"
+	var after_log: Node = main.find_child("FightLogText", true, false)
+	if after_log == null or not after_log.visible or "→" not in str(after_log.text):
+		return "full log not on screen after the fight"
 	var reward_beat: Node = main.find_child("ArrivalText", true, false)
 	if reward_beat == null or "clear" not in str(reward_beat.text):
 		return "reward beat missing"

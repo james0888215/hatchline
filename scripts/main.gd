@@ -305,6 +305,7 @@ func _build_start(page: VBoxContainer) -> void:
 		row.offset_top = -268
 		row.offset_bottom = -6
 		band.add_child(row)
+		_lift_over_wash(row)
 		for id in Game.starter_ids():
 			row.add_child(_starter_card(str(id)))
 		var dex_btn := _btn("Hatch-dex", Vector2(160, 36))
@@ -449,6 +450,9 @@ func _build_choice(page: VBoxContainer) -> void:
 		b.add_theme_font_size_override("font_size", 20)
 		b.pressed.connect(Game.choose.bind(i))
 		row.add_child(b)
+	var logged := _post_fight_log(false)
+	if logged:
+		page.add_child(logged)
 
 
 func _build_combat(page: VBoxContainer) -> void:
@@ -516,6 +520,8 @@ func _build_result(page: VBoxContainer) -> void:
 	line.name = "ResultLine"
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(line)
+	var logged: Array = result.get("log", [])
+	page.add_child(_full_log_panel(logged, true))
 	page.add_child(_lbl("Unlocks and the hatch-dex are kept.", 15, MUTED))
 	var dex: Array = result.get("new_dex", [])
 	if dex.is_empty():
@@ -597,6 +603,7 @@ func _unlock_critter() -> Dictionary:
 func _run_header() -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.z_index = 4
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -670,6 +677,7 @@ func _ribbon() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "PathRibbon"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.z_index = 4
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 0)
 	var cur := str(Game.run.node_id)
@@ -741,9 +749,25 @@ func _path_node(label: String, state: String) -> VBoxContainer:
 	dot.add_theme_stylebox_override("panel", s)
 	hold.add_child(dot)
 	box.add_child(hold)
-	var lab := _lbl(label, 13 if state == "now" else 11, INK if state == "now" else (GOOD if state == "past" else MUTED))
+	# Solid chip, dark ink. Green-on-sage and any outline read as a fuzzy glow.
+	var plate := Panel.new()
+	plate.name = "PathChip"
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chip := _style(Color("fffdf8"), Color("fffdf8"), 0)
+	chip.set_content_margin_all(1)
+	chip.set_corner_radius_all(3)
+	plate.add_theme_stylebox_override("panel", chip)
+	var quiet := Color("3a342c")
+	var lab := _lbl(label, 13 if state == "now" else 12, INK if state == "now" else quiet)
+	lab.name = "PathStep"
 	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(lab)
+	lab.add_theme_constant_override("outline_size", 0)
+	lab.add_theme_constant_override("shadow_offset_x", 0)
+	lab.add_theme_constant_override("shadow_offset_y", 0)
+	lab.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
+	lab.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+	plate.add_child(lab)
+	box.add_child(plate)
 	return box
 
 
@@ -822,6 +846,7 @@ func _meadow_nest(inner: Control, ground_gap: float, node_name: String) -> Contr
 	pad.add_theme_constant_override("margin_top", 4)
 	pad.add_theme_constant_override("margin_bottom", int(ground_gap))
 	pad.add_child(inner)
+	_lift_over_wash(pad)
 	wash.add_child(pad)
 	return wash
 
@@ -830,6 +855,9 @@ func _right_column() -> VBoxContainer:
 	var col := VBoxContainer.new()
 	col.custom_minimum_size = Vector2(300, 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var logged := _post_fight_log(false)
+	if logged:
+		col.add_child(logged)
 	var node := Game.current_node()
 	if str(node.type) == "shop":
 		col.add_child(_lbl(str(node.title), 16, INK))
@@ -857,7 +885,8 @@ func _right_column() -> VBoxContainer:
 func _shop_card(i: int) -> Panel:
 	var card: Dictionary = Game.run.shop[i]
 	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(286, 96)
+	var card_h := 76.0 if _has_post_fight_log() else 96.0
+	panel.custom_minimum_size = Vector2(286, card_h)
 	var def_id := str(card.def_id)
 	var frozen: bool = bool(card.frozen)
 	var border := Color("7aa2d6") if frozen else Color("cfc6b8")
@@ -1197,6 +1226,63 @@ func _round_badge() -> Panel:
 	round_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	p.add_child(round_label)
 	return p
+
+
+func _lift_over_wash(node: Control) -> void:
+	node.z_index = -MEADOW.Z_BEHIND
+
+
+func _has_post_fight_log() -> bool:
+	return Game.run != null and Game.run.has("last_log") and Game.phase != "combat"
+
+
+func _post_fight_log(tall: bool) -> Control:
+	if not _has_post_fight_log():
+		return null
+	var lines: Array = Game.run.last_log
+	if Game.phase == "result":
+		lines = Game.run.result.get("log", lines)
+	return _full_log_panel(lines, tall)
+
+
+func _full_log_panel(lines: Array, tall: bool) -> PanelContainer:
+	var p := PanelContainer.new()
+	p.name = "FightLog"
+	var h := 160 if tall else 80
+	p.custom_minimum_size = Vector2(0, h)
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL if tall else Control.SIZE_SHRINK_END
+	p.z_index = 4
+	var s := _style(Color("fffdf8"), INK, 2)
+	s.set_content_margin_all(8)
+	p.add_theme_stylebox_override("panel", s)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 4)
+	box.add_child(_lbl("COMBAT LOG", 14, INK))
+	var scroll := ScrollContainer.new()
+	scroll.name = "FightLogScroll"
+	scroll.custom_minimum_size = Vector2(0, h - 36)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var lab := _lbl(_log_body(lines), 14, INK)
+	lab.name = "FightLogText"
+	lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lab.custom_minimum_size = Vector2(640 if tall else 250, 0)
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(lab)
+	box.add_child(scroll)
+	p.add_child(box)
+	return p
+
+
+func _log_body(lines: Array) -> String:
+	if lines.is_empty():
+		return "No blows."
+	var out := PackedStringArray()
+	for line in lines:
+		out.append("•  " + str(line))
+	return "\n".join(out)
 
 
 func _log_bar() -> PanelContainer:

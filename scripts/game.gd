@@ -474,6 +474,7 @@ func finish_combat() -> void:
 	if _combat_done or combat == null or run == null:
 		return
 	_combat_done = true
+	run.last_log = combat.log_lines.duplicate()
 	if not combat.player_won:
 		run.arrival = "Run over"
 		_end_run(false, combat.defeat_reason())
@@ -612,6 +613,7 @@ func _end_run(won: bool, line: String) -> void:
 		"line": line,
 		"unlock": unlock,
 		"new_dex": dex,
+		"log": run.get("last_log", []),
 	}
 	combat = null
 	changed.emit()

@@ -15,10 +15,14 @@ const CELL := Color("e7f0de")
 var ground_from_bottom: float = 18.0
 # "fill" covers this control. "lower" is only the bottom band of a page.
 var wash_mode: String = "fill"
+# Hills stay behind Bench, Board, shop, path chrome, and labels.
+const Z_BEHIND := -8
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_contents = true
+	z_index = Z_BEHIND
 
 
 func _draw() -> void:
@@ -57,6 +61,9 @@ func _hills(area: Rect2) -> void:
 func _hill(cx: float, cy: float, rx: float, ry: float, color: Color) -> void:
 	if rx < 2.0 or ry < 2.0:
 		return
-	draw_set_transform(Vector2(cx, cy), 0.0, Vector2(rx, ry))
-	draw_circle(Vector2.ZERO, 1.0, color)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var pts := PackedVector2Array()
+	var steps := 28
+	for i in steps:
+		var a := TAU * float(i) / float(steps)
+		pts.append(Vector2(cx + cos(a) * rx, cy + sin(a) * ry))
+	draw_colored_polygon(pts, color)
