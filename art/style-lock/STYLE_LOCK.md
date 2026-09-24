@@ -41,6 +41,8 @@ Sheets 11–13 are wired in the greybox (the reference boards stay with Hatch Ar
 12. Enemy vs player — dusty mauve wild line; Driftkin stays powder blue  
 13. Role badges — claw / spit droplet on the top-right corner, clear of the line mark  
 
+Sheet 11 follow-up is not in the repo yet. Drop the softened underlay tiles, chrome-safe gutters, path cream pills, and solid active-node mark (no glow) in `art/style-lock/meadow-wash-v2/`. `scripts/meadow_wash.gd` keeps z-order (`Z_BEHIND`) and points at that folder with `ART_WASH_DIR`. Proto does not repaint the greybox palette. The path labels are a readable stand-in (dark ink, no glow) until those pills replace them.  
+
 ## Archive
 
 - `v2-simple/` — prior simple pass  
