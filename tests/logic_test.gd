@@ -38,6 +38,7 @@ func _main() -> void:
 		["boss_with_spike", _test_boss_win],
 		["defeat_line", _test_defeat_line],
 		["roles", _test_roles],
+		["sheet_art", _test_sheet_art],
 		["unlock_on_loss", _test_unlock],
 	]
 	for item in tests:
@@ -674,6 +675,98 @@ func _test_boss_win() -> String:
 		_fighter("sparkpup", 0, 2),
 	]
 	return _fight(units, "meadow_matron", true, "boss spike")
+
+
+func _test_sheet_art() -> String:
+	var tokens = load("res://scripts/token.gd")
+	for mark in ["meadow", "tired", "warden", "bramble", "sprig"]:
+		var tone := _body_mean(tokens.clarity_texture(mark))
+		if tone.r < tone.g + 0.04 or tone.b + 0.02 < tone.g:
+			return "%s is not dusty mauve %s" % [mark, tone]
+		if tone.r > 0.88:
+			return "%s still candy bright %s" % [mark, tone]
+	if _green_count(tokens.clarity_texture("meadow")) < 80:
+		return "meadow sprout was recolored"
+	if _green_count(tokens.clarity_texture("sprig")) < 40:
+		return "sprig leaves are not green"
+	var drift := _body_mean(tokens.clarity_texture("driftkin"))
+	if drift.b < drift.r or drift.g < drift.r:
+		return "driftkin lost powder blue %s" % drift
+	var sprout: Control = tokens.present("leaf", 1, 96.0, false, "sproutling", "melee")
+	var sprout_err := _badge_clear(sprout, "sproutling")
+	if sprout_err != "":
+		return sprout_err
+	var bud: Control = tokens.present("leaf", 1, 96.0, false, "budmite", "ranged")
+	var bud_err := _badge_clear(bud, "budmite")
+	if bud_err != "":
+		return bud_err
+	var spark: Control = tokens.present("ember", 1, 96.0, false, "sparkpup", "ranged")
+	var spark_err := _badge_clear(spark, "sparkpup")
+	if spark_err != "":
+		return spark_err
+	var cotton: Control = tokens.present("puff", 1, 64.0, false, "cottonwisp", "ranged")
+	return _badge_clear(cotton, "cottonwisp")
+
+
+func _badge_clear(box: Control, label: String) -> String:
+	var badge: Node = box.find_child("RoleBadge", true, false)
+	if badge == null or not (badge is Control):
+		return label + " missing role badge"
+	var sz := box.size
+	var pos := (badge as Control).position
+	var bsz := (badge as Control).size
+	var center := pos + bsz * 0.5
+	if center.x < sz.x * 0.60:
+		return "%s badge not top-right (%.1f, %.1f) in %s" % [label, center.x, center.y, sz]
+	if center.y > sz.y * 0.72:
+		return "%s badge too low (%.1f, %.1f) in %s" % [label, center.x, center.y, sz]
+	var mark := Rect2(sz.x * 0.28, 0.0, sz.x * 0.38, sz.y * 0.40)
+	if mark.intersects(Rect2(pos, bsz)):
+		return "%s badge overlaps line mark %s vs %s" % [label, Rect2(pos, bsz), mark]
+	return ""
+
+
+func _body_mean(tex: Texture2D) -> Color:
+	var img := tex.get_image()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var r := 0.0
+	var g := 0.0
+	var b := 0.0
+	var n := 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a < 0.65:
+				continue
+			if c.r < 0.45 and c.g < 0.45 and c.b < 0.45:
+				continue
+			if c.g > c.r + 0.05 and c.g > c.b + 0.05:
+				continue
+			var mx := maxf(c.r, maxf(c.g, c.b))
+			var mn := minf(c.r, minf(c.g, c.b))
+			if mx - mn < 0.08 and mx > 0.55:
+				continue
+			r += c.r
+			g += c.g
+			b += c.b
+			n += 1
+	if n == 0:
+		return Color(0, 0, 0)
+	return Color(r / n, g / n, b / n)
+
+
+func _green_count(tex: Texture2D) -> int:
+	var img := tex.get_image()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var n := 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.6 and c.g > c.r + 0.06 and c.g > c.b + 0.06:
+				n += 1
+	return n
 
 
 func _test_roles() -> String:

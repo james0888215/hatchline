@@ -35,6 +35,12 @@ Board-game tokens on cream paper. Soft pastel capsules. Thick outline. Almost ze
 8. `08-shop-line-clarity-t1.png` — T1 line faces  
 9. `09-shop-line-clarity-t2t3.png` — T2/T3 line marks  
 
+Sheets 11–13 are wired in the greybox (the reference boards stay with Hatch Art):
+
+11. Meadow presentation — soft sage wash and ground plane on starter, prep, and fight  
+12. Enemy vs player — dusty mauve wild line; Driftkin stays powder blue  
+13. Role badges — claw / spit droplet on the top-right corner, clear of the line mark  
+
 ## Archive
 
 - `v2-simple/` — prior simple pass  
@@ -85,3 +91,17 @@ T1 is a different face per line. Starters keep the family read from the sheet: S
 - **Fluffball** — scalloped fluff  
 
 Sheet 09 repeats that line’s mark for the evolve. Cloudbud, Driftkin, and Cumulon keep the crops from sheets 06 and 07.
+
+### Meadow presentation (`11-meadow-presentation-spine.png`)
+
+Starter, prep, and fight sit on a soft sage wash and a ground plane. Cream shop and button chrome stay. The wash is behind both fight boards. Capsules stay flat. No illustrated scenery.
+
+### Wild line (`12-enemy-vs-player-marks.png`)
+
+Mite, warden, bramble, and sprig are dusty mauve / cooler wild rose. Not candy pink, not Ember peach. Marks stay: grass sprout, white Z, crown, outline thorns, twin sprigs. Silhouettes read a little chunkier.
+
+**Driftkin stays powder blue with the one-sided sail** from sheet 07. It is not part of the mauve wild line.
+
+### Role badges (`13-role-badge-vs-line-marks.png`)
+
+The melee claw and the ranged spit droplet sit on the top-right outline corner. The line mark stays top-center or on the body. They do not share a pixel.

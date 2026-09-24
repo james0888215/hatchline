@@ -4,6 +4,7 @@ const SLOT := preload("res://scripts/slot.gd")
 const TOKENS := preload("res://scripts/token.gd")
 const LINKS := preload("res://scripts/buddy_overlay.gd")
 const MARK := preload("res://scripts/mark.gd")
+const MEADOW := preload("res://scripts/meadow_wash.gd")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -105,6 +106,13 @@ func _rebuild() -> void:
 		tick.stop()
 		_ending = false
 	_clear_host()
+	if Game.phase == "prep" or Game.phase == "combat":
+		var back = MEADOW.new()
+		back.name = "MeadowWash"
+		back.wash_mode = "lower"
+		back.ground_from_bottom = -1.0
+		back.set_anchors_preset(Control.PRESET_FULL_RECT)
+		host.add_child(back)
 	var root := MarginContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_theme_constant_override("margin_left", 16)
@@ -269,11 +277,24 @@ func _build_start(page: VBoxContainer) -> void:
 		)
 		page.add_child(back)
 	else:
+		var band = MEADOW.new()
+		band.name = "StarterMeadow"
+		band.wash_mode = "fill"
+		band.ground_from_bottom = 74.0
+		band.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		band.custom_minimum_size = Vector2(0, 280)
+		page.add_child(band)
 		var row := HBoxContainer.new()
-		row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.name = "StarterRow"
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 12)
-		page.add_child(row)
+		row.add_theme_constant_override("separation", 28)
+		row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		row.offset_left = 8
+		row.offset_right = -8
+		row.offset_top = -268
+		row.offset_bottom = -6
+		band.add_child(row)
 		for id in Game.starter_ids():
 			row.add_child(_starter_card(str(id)))
 		var dex_btn := _btn("Hatch-dex", Vector2(160, 36))
@@ -290,21 +311,24 @@ func _starter_card(id: String) -> Button:
 	var c: Dictionary = Game.critters[id]
 	var b := Button.new()
 	b.name = "Starter_%s" % id
-	b.custom_minimum_size = Vector2(220, 292)
+	b.custom_minimum_size = Vector2(210, 0)
+	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var is_new: bool = str(c.line) in Game.profile.new_lines
 	b.text = ("NEW\n" if is_new else "") + str(c.name)
 	b.add_theme_font_size_override("font_size", 1)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(state, Color(0, 0, 0, 0))
-	b.add_theme_stylebox_override("normal", _style(Color("fffdf8"), INK, 3))
-	b.add_theme_stylebox_override("hover", _style(Color("fff6e4"), INK, 3))
-	b.add_theme_stylebox_override("pressed", _style(Color("f3e6cc"), INK, 3))
-	b.add_theme_stylebox_override("focus", _style(Color("fffdf8"), INK, 3))
+	var clear := _style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0)
+	var hover := _style(Color(1, 1, 1, 0.28), INK, 2)
+	b.add_theme_stylebox_override("normal", clear)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", hover)
+	b.add_theme_stylebox_override("focus", clear)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 2)
+	col.alignment = BoxContainer.ALIGNMENT_END
+	col.add_theme_constant_override("separation", 1)
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", "")))
@@ -760,9 +784,30 @@ func _board_column() -> VBoxContainer:
 			slot.get_node("Margin/SlotBody").add_child(tag)
 		grid.add_child(slot)
 	built.stage.custom_minimum_size = grid.get_combined_minimum_size()
+	built.stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	built.stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(_rank_heads(PackedStringArray(["Back", "Mid", "Front"])))
-	col.add_child(built.stage)
+	col.add_child(_meadow_nest(built.stage, 16.0, "BoardMeadow"))
 	return col
+
+
+func _meadow_nest(inner: Control, ground_gap: float, node_name: String) -> Control:
+	var wash = MEADOW.new()
+	wash.name = node_name
+	wash.wash_mode = "fill"
+	wash.ground_from_bottom = 3.0
+	wash.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wash.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var pad := MarginContainer.new()
+	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override("margin_left", 6)
+	pad.add_theme_constant_override("margin_right", 6)
+	pad.add_theme_constant_override("margin_top", 4)
+	pad.add_theme_constant_override("margin_bottom", int(ground_gap))
+	pad.add_child(inner)
+	wash.add_child(pad)
+	return wash
 
 
 func _right_column() -> VBoxContainer:
@@ -1095,9 +1140,15 @@ func _combat_frame(title: String, stage: Control, ranks: PackedStringArray) -> V
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := _style(Color("f6f1e7"), INK, 3)
+	var frame_style := _style(Color(0, 0, 0, 0), INK, 3)
 	frame_style.set_content_margin_all(8)
 	frame.add_theme_stylebox_override("panel", frame_style)
+	var wash = MEADOW.new()
+	wash.name = "FightMeadow"
+	wash.wash_mode = "fill"
+	wash.ground_from_bottom = 4.0
+	wash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.add_child(wash)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1106,7 +1157,7 @@ func _combat_frame(title: String, stage: Control, ranks: PackedStringArray) -> V
 	margin.add_theme_constant_override("margin_left", 8)
 	margin.add_theme_constant_override("margin_right", 8)
 	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(stage)
@@ -1300,16 +1351,16 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if unit == null:
 		panel.set_meta("uid", -1)
-		panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
+		panel.add_theme_stylebox_override("panel", _style(MEADOW.CELL, Color("c9d4bc"), 1))
 		return panel
 	var alive: bool = bool(unit.alive)
 	var border := INK if alive else Color("b7b1a6")
 	var width := 2
-	var bg := SLOT_EMPTY
+	var bg := MEADOW.CELL
 	if glow.a > 0.0 and alive:
 		border = glow
 		width = 4
-		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
+		bg = Color(glow.r, glow.g, glow.b).lerp(MEADOW.CELL, 0.78)
 	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
 	panel.clip_contents = false
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1364,11 +1415,11 @@ func _touch_combat_cell(panel: Panel, unit, glow: Color, popping: bool) -> void:
 	var alive: bool = bool(unit.alive)
 	var border := INK if alive else Color("b7b1a6")
 	var width := 2
-	var bg := SLOT_EMPTY
+	var bg := MEADOW.CELL
 	if glow.a > 0.0 and alive:
 		border = glow
 		width = 4
-		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
+		bg = Color(glow.r, glow.g, glow.b).lerp(MEADOW.CELL, 0.78)
 	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
 	panel.tooltip_text = _combat_detail(unit).replace("\n", "   ")
 	var name_lab: Node = panel.find_child("NameText", true, false)
