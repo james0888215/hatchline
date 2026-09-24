@@ -66,14 +66,21 @@ func _melee() -> void:
 
 
 func _ranged() -> void:
+	# Soft spit droplet. Sheet 13: cosy seed, not a spark.
 	var ink := Color("243042")
-	var seed := Vector2(size.x * 0.40, size.y * 0.62)
-	var r := minf(size.x, size.y) * 0.16
-	draw_circle(seed, r, Color("d5e29a"))
-	draw_arc(seed, r, 0, TAU, 14, ink, 1.3, true)
-	var spark := Vector2(size.x * 0.70, size.y * 0.32)
-	draw_line(seed + Vector2(r * 0.4, -r * 0.5), spark, ink, 1.4, true)
-	draw_circle(spark, r * 0.7, Color("f6d56b"))
+	var drop := Color("d5e29a")
+	var c := Vector2(size.x * 0.46, size.y * 0.64)
+	var r := minf(size.x, size.y) * 0.20
+	var tip := Vector2(size.x * 0.70, size.y * 0.22)
+	draw_colored_polygon(PackedVector2Array([
+		c + Vector2(-r * 0.35, -r * 0.55),
+		tip,
+		c + Vector2(r * 0.45, -r * 0.15),
+	]), drop)
+	draw_circle(c, r, drop)
+	draw_arc(c, r * 0.92, 0.15, PI + 0.9, 14, ink, 1.35, true)
+	draw_line(c + Vector2(-r * 0.2, -r * 0.7), tip, ink, 1.35, true)
+	draw_line(tip, c + Vector2(r * 0.55, -r * 0.05), ink, 1.35, true)
 
 
 func _sell() -> void:

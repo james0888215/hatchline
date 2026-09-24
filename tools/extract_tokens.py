@@ -2,8 +2,8 @@
 """Cut family+tier capsule tokens out of the locked silhouette sheets.
 
 Source sheets live in art/style-lock/. Outputs land in art/tokens/.
-Beast (meadow enemies with no Leaf / Ember / Puff mark) is the plain
-rose pill from the combat mock — two dots, no family mark.
+Beast fallback is the plain pill from the combat mock, retinted to the
+sheet 12 dusty mauve. Driftkin stays the powder-blue sail from sheet 07.
 """
 
 from pathlib import Path
@@ -35,7 +35,20 @@ SHEET_BOXES = {
 }
 
 # Enemy pills on the combat mock. Same silhouette; either crop is fine.
+# Sheet 12 retints this fallback to dusty mauve after the cut.
 BEAST_BOX = ("05-combat-mock.png", "beast_t1", (1068, 168, 1210, 270))
+
+# Sheet 12. Dusty mauve / cooler wild rose. Not candy pink, not ember peach.
+# Driftkin is powder blue on sheet 07 and is not in this list.
+WILD_MAUVE = (162, 112, 136)  # #a27088
+WILD_TINT_FILES = (
+    "mite_meadow",
+    "mite_tired",
+    "beast_warden",
+    "beast_bramble",
+    "beast_sprig",
+    "beast_t1",
+)
 
 # Clarity sheet heroes. Boxes exclude captions. Interior white (the Z badge,
 # cream horns) is kept; only paper connected to the crop edge is dropped.
@@ -155,6 +168,65 @@ def cut_clarity(path: Path, box: tuple) -> Image.Image:
 	return Image.fromarray(trim(flood_key(crop)))
 
 
+def _is_wild_body(r: int, g: int, b: int) -> bool:
+    """Rose or sage fill only. Outlines, the Z, sprouts, and sprigs stay."""
+    r, g, b = int(r), int(g), int(b)
+    mx = max(r, g, b)
+    mn = min(r, g, b)
+    sat = mx - mn
+    if mx < 118 and sat < 40:
+        return False
+    if sat < 20 and mx > 140:
+        return False
+    if sat < 18 and mx < 170:
+        return False
+    if g > r + 12 and g > b + 12 and g > 70:
+        return False
+    if r > 165 and g > 135 and b < 115 and (g - b) > 35:
+        return False
+    if mx < 100:
+        return False
+    return True
+
+
+def _mauve_pixel(r: int, g: int, b: int) -> tuple:
+    lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+    tr, tg, tb = WILD_MAUVE
+    tl = (0.2126 * tr + 0.7152 * tg + 0.0722 * tb) / 255.0
+    dusty = 0.44 + (lum - 0.44) * 0.52
+    dusty = max(0.12, min(0.70, dusty))
+    scale = dusty / tl
+    return (
+        int(min(255, tr * scale)),
+        int(min(255, tg * scale)),
+        int(min(255, tb * scale)),
+    )
+
+
+def tint_wild() -> None:
+    """Sheet 12. Mite, warden, bramble, and sprig read as dusty mauve.
+
+    Driftkin stays the powder-blue sail from sheet 07.
+    """
+    for name in WILD_TINT_FILES:
+        path = OUT / f"{name}.png"
+        arr = np.array(Image.open(path).convert("RGBA"))
+        out = arr.copy()
+        changed = 0
+        for y in range(arr.shape[0]):
+            for x in range(arr.shape[1]):
+                r, g, b, a = (int(v) for v in arr[y, x])
+                if a < 8 or not _is_wild_body(r, g, b):
+                    continue
+                nr, ng, nb = _mauve_pixel(r, g, b)
+                out[y, x, 0] = nr
+                out[y, x, 1] = ng
+                out[y, x, 2] = nb
+                changed += 1
+        Image.fromarray(out).save(path)
+        print(f"tint {path.name} {changed}")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for sheet, items in SHEET_BOXES.items():
@@ -192,6 +264,7 @@ def main() -> None:
         dest = OUT / f"{name}.png"
         img.save(dest)
         print(f"{dest.name} {img.size}")
+    tint_wild()
 
 
 if __name__ == "__main__":

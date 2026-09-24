@@ -2,7 +2,7 @@
 
 A solo PvE auto-battler. You hatch critters, **strictly triple-merge** them, and place them on a **3×3** meadow. Combat plays itself. One circuit: the Meadow.
 
-Critters on the board, bench, shop, and combat grid are flat capsule tokens from the locked Hatch Art style. Meadow Circuit rules are unchanged. There is no full production atlas.
+Critters on the board, bench, shop, and combat grid are flat capsule tokens from the locked Hatch Art style. Starter, prep, and fight sit on a soft sage meadow wash. Wild mites read dusty mauve, and Driftkin stays powder blue. Meadow Circuit rules are unchanged. There is no full production atlas.
 
 ## Art
 
