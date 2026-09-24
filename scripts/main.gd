@@ -422,15 +422,18 @@ func _build_result(page: VBoxContainer) -> void:
 	page.add_child(_tease_row())
 
 
-func _unlock_card(copy: String) -> Panel:
-	var card := Panel.new()
+func _unlock_card(copy: String) -> PanelContainer:
+	var card := PanelContainer.new()
 	card.name = "UnlockCard"
-	card.custom_minimum_size = Vector2(0, 210)
+	card.custom_minimum_size = Vector2(560, 0)
 	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	card.add_theme_stylebox_override("panel", _style(Color("fffdf8"), INK, 3))
+	var style := _style(Color("fffdf8"), INK, 3)
+	style.set_content_margin_all(16)
+	card.add_theme_stylebox_override("panel", style)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 2)
 	var found := _unlock_critter()
 	var family := str(found.get("family", "leaf"))
@@ -448,9 +451,14 @@ func _unlock_card(copy: String) -> Panel:
 	var name := _lbl(str(found.get("name", "New egg")), 26, INK)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(name)
-	var line := _lbl(copy, 15, MUTED)
+	var line := _lbl(copy, 16, MUTED)
+	line.name = "UnlockCopy"
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.clip_text = false
+	line.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	line.custom_minimum_size = Vector2(520, 0)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(line)
 	card.add_child(col)
 	return card
@@ -1487,7 +1495,13 @@ func _teach_line() -> String:
 				return "Same-family neighbours glow. Watch the boards."
 			return ""
 		"shop_a":
-			return "Freeze keeps a card. A pair shows 2/3. Interest is +1 per 5 saved."
+			var lessons := [
+				"Freeze keeps a card.",
+				"A pair shows 2/3.",
+				"Interest is +1 per 5 saved.",
+			]
+			var step := clampi(int(Game.run.get("stall_step", 0)), 0, lessons.size() - 1)
+			return str(lessons[step])
 		_:
 			return ""
 

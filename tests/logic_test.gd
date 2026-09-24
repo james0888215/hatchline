@@ -623,6 +623,11 @@ func _test_ui() -> String:
 	var hero: Node = unlock.find_child("Capsule", true, false)
 	if hero == null or not (hero is TextureRect) or hero.custom_minimum_size.y < 80.0:
 		return "unlock capsule is not the hero"
+	var copy: Node = unlock.find_child("UnlockCopy", true, false)
+	if copy == null or not (copy is Label) or "starter row next run" not in str(copy.text):
+		return "unlock copy missing the full sentence"
+	if copy is Label and (copy as Label).get_line_count() > (copy as Label).get_visible_line_count():
+		return "unlock copy clipped"
 	var dex: Node = main.find_child("DexTick", true, false)
 	if dex == null or "Foxfire" not in dex.text:
 		return "dex tick not visible"
@@ -723,8 +728,11 @@ func _test_ui() -> String:
 		return "drop did not place"
 	if _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
 		return "shop teach wall still up"
-	if main.find_child("TeachLine", true, false) == null:
+	var stall_teach: Node = main.find_child("TeachLine", true, false)
+	if stall_teach == null or not (stall_teach is Label):
 		return "first stall should teach once"
+	if _packed_stall(str(stall_teach.text)):
+		return "first stall still packs every lesson"
 	if _button_says(main, "Sell"):
 		return "per-cell sell button remains"
 	g.enter_node("shop_b")
@@ -870,6 +878,17 @@ func _quiet_count(main: Node, want_visible: bool) -> int:
 		if detail != null and detail.visible == want_visible:
 			n += 1
 	return n
+
+
+func _packed_stall(text: String) -> bool:
+	var n := 0
+	if "Freeze" in text:
+		n += 1
+	if "2/3" in text:
+		n += 1
+	if "Interest" in text:
+		n += 1
+	return n > 1
 
 
 func _text_has(node: Node, needle: String) -> bool:

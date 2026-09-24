@@ -360,6 +360,8 @@ func toggle_freeze(i: int) -> void:
 	if str(run.shop[i].def_id) == "":
 		return
 	run.shop[i].frozen = not bool(run.shop[i].frozen)
+	if bool(run.shop[i].frozen):
+		_advance_stall("freeze")
 	changed.emit()
 
 
@@ -600,7 +602,7 @@ func _finish_profile(won: bool) -> String:
 		profile.unlocked_lines.append(line)
 		if line not in profile.new_lines:
 			profile.new_lines.append(line)
-		msg = "New egg-line: %s. On the starter row next run." % str(circuit.meta.unlock_name)
+		msg = "New egg-line: %s.\nOn the starter row next run." % str(circuit.meta.unlock_name)
 	_save_profile()
 	return msg
 
@@ -634,7 +636,30 @@ func _apply_event(choice: Dictionary) -> String:
 
 func _after_units_changed() -> void:
 	resolve_merges()
+	_advance_stall("pair")
 	changed.emit()
+
+
+func _advance_stall(kind: String) -> void:
+	if run == null or str(run.node_id) != "shop_a":
+		return
+	var step := int(run.get("stall_step", 0))
+	if kind == "freeze" and step < 1:
+		run.stall_step = 1
+	elif kind == "pair" and _has_pair() and step < 2:
+		run.stall_step = 1 if step < 1 else 2
+
+
+func _has_pair() -> bool:
+	var seen := {}
+	for u in all_units():
+		var id := str(u.def_id)
+		if seen.has(id):
+			continue
+		seen[id] = true
+		if copy_count(id) == 2:
+			return true
+	return false
 
 
 func _combat_player_units() -> Array:
