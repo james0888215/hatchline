@@ -32,6 +32,8 @@ Board-game tokens on cream paper. Soft pastel capsules. Thick outline. Almost ze
 5. `05-combat-mock.png`  
 6. `06-token-clarity.png` — enemy mite + Puff shop clarity  
 7. `07-token-clarity-elites.png` — Nest Warden / Bramble / Sprig Add / Driftkin  
+8. `08-shop-line-clarity-t1.png` — T1 line faces  
+9. `09-shop-line-clarity-t2t3.png` — T2/T3 line marks  
 
 ## Archive
 
@@ -69,3 +71,17 @@ Colour + silhouette both differ. Do not ship two Puff shop faces that share the 
 - **Driftkin** — powder blue capsule + **one-sided sail** (not Cloudbud’s twin wings); optional drift dots  
 
 Still: silhouette or large badge at 3×3; no plain shared rose pill for different roles.
+
+### Shop lines (`08-shop-line-clarity-t1.png`, `09-shop-line-clarity-t2t3.png`)
+
+T1 is a different face per line. Starters keep the family read from the sheet: Sproutling is the horizontal leaf capsule, Sparkpup the flame, Cottonwisp the cloud.
+
+- **Sproutling** — wide mint capsule + leaf on top  
+- **Dewcap** — mushroom lid over a short body  
+- **Budmite** — vertical egg + bud badge (not Sproutling’s leaf)  
+- **Wicklet** — tall candle wick  
+- **Cinderkit** — round face + ember badge  
+- **Nimbusling** — low blue capsule + sail  
+- **Fluffball** — scalloped fluff  
+
+Sheet 09 repeats that line’s mark for the evolve. Cloudbud, Driftkin, and Cumulon keep the crops from sheets 06 and 07.

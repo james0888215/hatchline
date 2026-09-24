@@ -224,7 +224,7 @@ func _starter_card(id: String) -> Button:
 	col.add_theme_constant_override("separation", 2)
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, "", str(c.get("role", "")))
+	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", "")))
 	hold.add_child(token)
 	col.add_child(hold)
 	if is_new:
@@ -439,7 +439,7 @@ func _unlock_card(copy: String) -> PanelContainer:
 	var tier := int(found.get("tier", 1))
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.present(family, tier, 132.0, false, "", str(found.get("role", "")))
+	var token := TOKENS.present(family, tier, 132.0, false, TOKENS.species_mark(family, str(found.get("line", "")), tier), str(found.get("role", "")))
 	hold.add_child(token)
 	col.add_child(hold)
 	var chip_row := CenterContainer.new()

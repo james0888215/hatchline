@@ -32,40 +32,106 @@ static func enemy_mark(def_id: String) -> String:
 			return ""
 
 
+const MARK_FILES := {
+	"meadow": "mite_meadow",
+	"tired": "mite_tired",
+	"cloudbud": "puff_cloudbud",
+	"cumulon": "puff_cumulon",
+	"warden": "beast_warden",
+	"bramble": "beast_bramble",
+	"sprig": "beast_sprig",
+	"driftkin": "puff_driftkin",
+	"sproutling": "leaf_sproutling",
+	"dewcap": "leaf_dewcap",
+	"budmite": "leaf_budmite",
+	"thornbud": "leaf_thornbud",
+	"elderthorn": "leaf_elderthorn",
+	"canopykin": "leaf_canopykin",
+	"mossguard": "leaf_mossguard",
+	"grovewarden": "leaf_grovewarden",
+	"sparkpup": "ember_sparkpup",
+	"wicklet": "ember_wicklet",
+	"cinderkit": "ember_cinderkit",
+	"foxfire": "ember_foxfire",
+	"infernox": "ember_infernox",
+	"emberfox": "ember_emberfox",
+	"pyrelord": "ember_pyrelord",
+	"blazetail": "ember_blazetail",
+	"cottonwisp": "puff_cottonwisp",
+	"nimbusling": "puff_nimbusling",
+	"fluffball": "puff_fluffball",
+	"stormpillow": "puff_stormpillow",
+	"skyloom": "puff_skyloom",
+}
+
+
 static func species_mark(family: String, line: String, tier: int) -> String:
-	if family == "puff" and tier == 2:
+	# Sheet 08 is the T1 face. Sheet 09 continues that line at T2/T3.
+	# Cloudbud, Driftkin, and Cumulon keep their earlier clarity crops.
+	var mark := ""
+	if tier == 1:
 		match line:
+			"sprout":
+				mark = "sproutling"
+			"dew":
+				mark = "dewcap"
+			"bud":
+				mark = "budmite"
+			"spark":
+				mark = "sparkpup"
+			"wick":
+				mark = "wicklet"
+			"cinder":
+				mark = "cinderkit"
 			"cotton":
-				return "cloudbud"
-			"fluff":
-				return "cumulon"
+				mark = "cottonwisp"
 			"nimbus":
-				return "driftkin"
-	return ""
+				mark = "nimbusling"
+			"fluff":
+				mark = "fluffball"
+	elif tier == 2:
+		match line:
+			"sprout":
+				mark = "thornbud"
+			"dew":
+				mark = "canopykin"
+			"bud":
+				mark = "mossguard"
+			"spark":
+				mark = "foxfire"
+			"wick":
+				mark = "emberfox"
+			"cinder":
+				mark = "blazetail"
+			"cotton":
+				mark = "cloudbud"
+			"nimbus":
+				mark = "driftkin"
+			"fluff":
+				mark = "cumulon"
+	elif tier == 3:
+		match line:
+			"sprout":
+				mark = "elderthorn"
+			"bud":
+				mark = "grovewarden"
+			"spark":
+				mark = "infernox"
+			"wick":
+				mark = "pyrelord"
+			"cotton":
+				mark = "stormpillow"
+			"nimbus":
+				mark = "skyloom"
+	if mark == "" or not MARK_FILES.has(mark):
+		return ""
+	return mark
 
 
 static func clarity_texture(mark: String) -> Texture2D:
-	var file := ""
-	match mark:
-		"meadow":
-			file = "mite_meadow"
-		"tired":
-			file = "mite_tired"
-		"cloudbud":
-			file = "puff_cloudbud"
-		"cumulon":
-			file = "puff_cumulon"
-		"warden":
-			file = "beast_warden"
-		"bramble":
-			file = "beast_bramble"
-		"sprig":
-			file = "beast_sprig"
-		"driftkin":
-			file = "puff_driftkin"
-		_:
-			return null
-	var path := "res://art/tokens/%s.png" % file
+	if not MARK_FILES.has(mark):
+		return null
+	var path := "res://art/tokens/%s.png" % str(MARK_FILES[mark])
 	if not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
