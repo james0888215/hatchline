@@ -25,8 +25,9 @@ const PICK_ACTION_ANCHOR := 0.74
 const PICK_SELECTED_SCALE := 1.045
 const PICK_HOVER_SEC := 0.11
 const TITLE_VERSION := "v0.playtest-1"
-# MOTION_BRIEF §3. One-way travel, then the loop returns.
-# Clouds stay inside 8–16 px over 12–20 s. Hills stay ≤4 px over ~20 s.
+# MOTION_BRIEF §3. One-way travel, then the loop returns. Not a tiled wrap.
+# Clouds stay inside 8–16 px over 12–20 s. Far hills stay ≤4 px over 20 s.
+# clouds.png edges do not meet, so a wrap would hitch. Do not speed drift to hide that.
 # Starter frame idle is the shared clock only — no scale tween on those frames.
 const CLOUD_DRIFT_PX := 12.0
 const CLOUD_DRIFT_SEC := 16.0
