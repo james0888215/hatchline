@@ -1142,11 +1142,30 @@ func _your_board_title() -> String:
 
 
 func _fill_combat_grid(grid: GridContainer, cells: Array, glow: Dictionary, popping: Dictionary) -> void:
-	for c in grid.get_children():
-		grid.remove_child(c)
-		c.free()
+	if grid.get_child_count() != cells.size():
+		for c in grid.get_children():
+			grid.remove_child(c)
+			c.free()
+		for i in cells.size():
+			grid.add_child(_combat_cell(cells[i], glow.get(i, Color(0, 0, 0, 0)), popping))
+		return
 	for i in cells.size():
-		grid.add_child(_combat_cell(cells[i], glow.get(i, Color(0, 0, 0, 0)), popping))
+		var cell: Node = grid.get_child(i)
+		var unit = cells[i]
+		var uid := -1
+		if unit != null:
+			uid = int(unit.uid)
+		var have := -2
+		if cell.has_meta("uid"):
+			have = int(cell.get_meta("uid"))
+		if have != uid:
+			var neu := _combat_cell(unit, glow.get(i, Color(0, 0, 0, 0)), popping)
+			grid.remove_child(cell)
+			cell.free()
+			grid.add_child(neu)
+			grid.move_child(neu, i)
+		elif unit != null and cell is Panel:
+			_touch_combat_cell(cell as Panel, unit, glow.get(i, Color(0, 0, 0, 0)), popping.has(uid))
 
 
 func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
@@ -1156,6 +1175,7 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if unit == null:
+		panel.set_meta("uid", -1)
 		panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
 		return panel
 	var alive: bool = bool(unit.alive)
@@ -1167,7 +1187,7 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 		width = 4
 		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
 	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
-	panel.clip_contents = true
+	panel.clip_contents = false
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.tooltip_text = _combat_detail(unit).replace("\n", "   ")
 	panel.gui_input.connect(func(ev: InputEvent) -> void:
@@ -1178,6 +1198,8 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	)
 	panel.set_meta("uid", int(unit.uid))
 	var band := _name_band(_short_name(str(unit.name), 12), 12, INK if alive else MUTED)
+	if band.get_child_count() > 0:
+		band.get_child(0).name = "NameText"
 	band.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	band.offset_left = 4
 	band.offset_right = -4
@@ -1192,7 +1214,7 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	var juice := _juice_wrap(token)
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.clip_contents = true
+	holder.clip_contents = false
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.offset_left = 4
 	holder.offset_right = -4
@@ -1208,10 +1230,44 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 	bar_band.offset_top = -18
 	bar_band.offset_bottom = -2
 	var bar := _hp_bar(int(unit.hp), int(unit.max_hp))
+	bar.name = "HpBar"
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bar_band.add_child(bar)
 	panel.add_child(bar_band)
 	return panel
+
+
+func _touch_combat_cell(panel: Panel, unit, glow: Color, popping: bool) -> void:
+	var alive: bool = bool(unit.alive)
+	var border := INK if alive else Color("b7b1a6")
+	var width := 2
+	var bg := SLOT_EMPTY
+	if glow.a > 0.0 and alive:
+		border = glow
+		width = 4
+		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
+	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
+	panel.tooltip_text = _combat_detail(unit).replace("\n", "   ")
+	var name_lab: Node = panel.find_child("NameText", true, false)
+	if name_lab is Label:
+		(name_lab as Label).add_theme_color_override("font_color", INK if alive else MUTED)
+	var bar: Node = panel.find_child("HpBar", true, false)
+	if bar is ProgressBar:
+		var pb := bar as ProgressBar
+		var mx := maxi(1, int(unit.max_hp))
+		pb.max_value = mx
+		pb.value = int(unit.hp)
+		var ratio := clampf(float(unit.hp) / float(mx), 0.0, 1.0)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = GOOD if ratio > 0.35 else BAD
+		fill.set_corner_radius_all(3)
+		fill.set_content_margin_all(0)
+		pb.add_theme_stylebox_override("fill", fill)
+	var juice: Node = panel.find_child("Juice", true, false)
+	if juice is Control and not alive and not popping and not _juice_busy(juice as Control):
+		var j := juice as Control
+		j.scale = Vector2(0.72, 0.72)
+		j.modulate = Color(0.62, 0.62, 0.64, 0.55)
 
 
 func _combat_detail(unit) -> String:
@@ -1485,6 +1541,13 @@ func _juice_wrap(token: Control) -> Control:
 	juice.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	token.position = Vector2.ZERO
 	juice.add_child(token)
+	var flash := ColorRect.new()
+	flash.name = "Flash"
+	flash.color = Color("ff5c4a")
+	flash.modulate.a = 0.0
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	juice.add_child(flash)
 	juice.resized.connect(func() -> void:
 		juice.pivot_offset = juice.size * 0.5
 	)
@@ -1498,7 +1561,7 @@ func _play_cues(cues: Array) -> void:
 		if not by_uid.has(uid):
 			by_uid[uid] = []
 		by_uid[uid].append(str(entry.kind))
-	var k := 0.7 if Game.speed >= 2 else 1.0
+	var k := 0.72 if Game.speed >= 2 else 1.0
 	for uid in by_uid.keys():
 		var node := _find_juice(int(uid))
 		if node == null:
@@ -1518,32 +1581,58 @@ func _find_juice(uid: int) -> Control:
 	return null
 
 
+func _juice_busy(node: Control) -> bool:
+	if not node.has_meta("juice_tw"):
+		return false
+	var tw = node.get_meta("juice_tw")
+	return tw is Tween and (tw as Tween).is_valid() and (tw as Tween).is_running()
+
+
 func _tween_juice(node: Control, kinds: Array, k: float) -> void:
 	var has_kill := false
 	for kind in kinds:
 		if str(kind) == "kill":
 			has_kill = true
+	if node.has_meta("juice_tw"):
+		var old = node.get_meta("juice_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	node.scale = Vector2.ONE
+	node.modulate = Color.WHITE
+	var flash: Node = node.find_child("Flash", true, false)
+	if flash is CanvasItem:
+		(flash as CanvasItem).modulate.a = 0.0
 	var tw := node.create_tween()
+	node.set_meta("juice_tw", tw)
 	for kind in kinds:
 		var step := str(kind)
 		if step == "windup":
-			tw.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-			tw.tween_property(node, "scale", Vector2.ONE, 0.04 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+			tw.tween_property(node, "scale", Vector2(1.32, 0.60), 0.11 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(0.08 * k)
+			tw.tween_property(node, "scale", Vector2.ONE, 0.12 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		elif step == "hit":
 			if has_kill:
 				continue
-			tw.tween_property(node, "scale", Vector2(1.26, 0.66), 0.05 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.72, 0.68), 0.05 * k)
-			tw.tween_interval(0.10 * k)
-			tw.tween_property(node, "scale", Vector2.ONE, 0.10 * k)
-			tw.parallel().tween_property(node, "modulate", Color.WHITE, 0.10 * k)
+			tw.tween_property(node, "scale", Vector2(1.40, 0.52), 0.08 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.42, 0.36), 0.08 * k)
+			if flash is CanvasItem:
+				tw.parallel().tween_property(flash, "modulate:a", 0.62, 0.08 * k)
+			tw.tween_interval(0.08 * k)
+			tw.tween_property(node, "scale", Vector2.ONE, 0.16 * k)
+			tw.parallel().tween_property(node, "modulate", Color.WHITE, 0.16 * k)
+			if flash is CanvasItem:
+				tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.16 * k)
 		elif step == "kill":
-			tw.tween_property(node, "scale", Vector2(1.16, 0.76), 0.04 * k)
-			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.72, 0.68), 0.04 * k)
-			tw.tween_property(node, "scale", Vector2(1.34, 1.34), 0.06 * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			tw.tween_interval(0.12 * k)
-			tw.tween_property(node, "scale", Vector2(0.70, 0.70), 0.16 * k)
-			tw.parallel().tween_property(node, "modulate", Color(0.62, 0.62, 0.64, 0.4), 0.16 * k)
+			tw.tween_property(node, "scale", Vector2(1.20, 0.66), 0.06 * k)
+			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.40, 0.34), 0.06 * k)
+			if flash is CanvasItem:
+				tw.parallel().tween_property(flash, "modulate:a", 0.7, 0.06 * k)
+			tw.tween_property(node, "scale", Vector2(1.58, 1.58), 0.12 * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(0.07 * k)
+			tw.tween_property(node, "scale", Vector2(0.40, 0.40), 0.20 * k)
+			tw.parallel().tween_property(node, "modulate", Color(0.55, 0.55, 0.58, 0.3), 0.20 * k)
+			if flash is CanvasItem:
+				tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.20 * k)
 
 
 func _pop_wrap(token: Control) -> Control:
