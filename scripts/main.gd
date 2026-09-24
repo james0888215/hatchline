@@ -818,20 +818,22 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 
 
 func _sell_zone() -> Control:
-	var slot := _make_slot("sell", -1, null, 420, 64)
+	var slot := _make_slot("sell", -1, null, 460, 76)
 	slot.name = "SellZone"
+	slot.tooltip_text = "Drag a critter here to sell"
 	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 	var tag := Control.new()
 	tag.set_script(MARK)
 	tag.set("kind", "sell")
-	tag.custom_minimum_size = Vector2(28, 22)
+	tag.custom_minimum_size = Vector2(36, 28)
 	row.add_child(tag)
-	var lab := _lbl("Sell", 16, BAD)
+	var lab := _lbl("Drag a critter here to sell", 18, BAD)
+	lab.name = "SellHint"
 	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lab)
 	slot.get_node("Margin/SlotBody").add_child(row)

@@ -79,13 +79,13 @@ func _ranged() -> void:
 func _sell() -> void:
 	var w := size.x
 	var h := size.y
-	var pts := PackedVector2Array([
-		Vector2(w * 0.06, h * 0.22),
-		Vector2(w * 0.56, h * 0.22),
-		Vector2(w * 0.94, h * 0.50),
-		Vector2(w * 0.56, h * 0.78),
-		Vector2(w * 0.06, h * 0.78),
-	])
-	draw_colored_polygon(pts, Color("a33b32"))
-	draw_circle(Vector2(w * 0.26, h * 0.50), h * 0.10, Color("f6f1e7"))
+	var ink := Color("a33b32")
+	var lid := maxf(2.0, h * 0.1)
+	draw_rect(Rect2(w * 0.18, h * 0.34, w * 0.64, h * 0.5), ink)
+	draw_rect(Rect2(w * 0.12, h * 0.24, w * 0.76, lid), ink)
+	draw_line(Vector2(w * 0.38, h * 0.14), Vector2(w * 0.62, h * 0.14), ink, lid, true)
+	var slot := maxf(1.6, w * 0.07)
+	var cream := Color("f6f1e7")
+	draw_line(Vector2(w * 0.4, h * 0.44), Vector2(w * 0.4, h * 0.74), cream, slot, true)
+	draw_line(Vector2(w * 0.6, h * 0.44), Vector2(w * 0.6, h * 0.74), cream, slot, true)
 

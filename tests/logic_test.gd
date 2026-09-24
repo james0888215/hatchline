@@ -31,6 +31,7 @@ func _main() -> void:
 		["shop_teach_and_buy", _test_shop],
 		["reroll_freeze_interest", _test_reroll_interest],
 		["freeze_survives_fight", _test_freeze_survives_fight],
+		["sell_drag", _test_sell_drag],
 		["soft_cap_and_sell", _test_soft_cap_sell],
 		["sparring_win", _test_sparring],
 		["wild_with_buddies", _test_wild_win],
@@ -572,6 +573,25 @@ func _test_freeze_survives_fight() -> String:
 	return ""
 
 
+func _test_sell_drag() -> String:
+	g.blank_run()
+	g.enter_node("sparring_1")
+	var u: Dictionary = _put("bench", 0, "sparkpup")
+	var coins := int(g.run.coins)
+	g.handle_drop("sell", -1, {"uid": int(u.uid)})
+	if g.run.bench[0] != null:
+		return "drag sell left the critter"
+	if int(g.run.coins) != coins + g.econ("SELL_T1"):
+		return "drag sell value"
+	if "Sold" not in str(g.run.toast):
+		return "drag sell toast"
+	var board: Dictionary = _put("board", 2, "dewcap")
+	g.handle_drop("sell", -1, {"uid": int(board.uid)})
+	if g.run.board[2] != null:
+		return "board drag sell left the critter"
+	return ""
+
+
 func _test_soft_cap_sell() -> String:
 	g.blank_run()
 	var ids: Array = ["sproutling", "dewcap", "sparkpup", "wicklet", "cinderkit", "cottonwisp", "nimbusling", "fluffball"]
@@ -852,6 +872,13 @@ func _test_ui() -> String:
 	var sell: Node = main.find_child("SellZone", true, false)
 	if sell == null:
 		return "no sell zone"
+	var hint: Node = sell.find_child("SellHint", true, false)
+	if hint == null or not (hint is Label) or "Drag a critter here" not in str(hint.text):
+		return "sell zone is not a drag target"
+	if not sell.has_method("_can_drop_data") or not sell.has_method("_drop_data"):
+		return "sell zone does not take a drop"
+	if not bool(sell._can_drop_data(Vector2.ZERO, {"uid": int(center.get("unit_uid"))})):
+		return "sell zone rejected a critter"
 	var fight: Node = main.find_child("FightButton", true, false)
 	if fight == null:
 		return "no fight button"
@@ -915,6 +942,16 @@ func _test_ui() -> String:
 	var corner = main.find_child("Board0", true, false)
 	if corner == null or int(corner.get("unit_uid")) < 0:
 		return "drop did not place"
+	var sell_zone: Node = main.find_child("SellZone", true, false)
+	var coins_before := int(g.run.coins)
+	sell_zone._drop_data(Vector2.ZERO, {"uid": int(corner.get("unit_uid"))})
+	await process_frame
+	await process_frame
+	var cleared: Node = main.find_child("Board0", true, false)
+	if cleared == null or int(cleared.get("unit_uid")) >= 0:
+		return "sell drop left the critter"
+	if int(g.run.coins) != coins_before + g.econ("SELL_T1"):
+		return "sell drop paid the wrong amount"
 	if _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
 		return "shop teach wall still up"
 	var stall_teach: Node = main.find_child("TeachLine", true, false)
