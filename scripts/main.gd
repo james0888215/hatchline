@@ -561,7 +561,7 @@ func _ribbon() -> HBoxContainer:
 		if s > 0:
 			var walked: bool = str(states[s - 1]) == "past" or str(states[s]) != "next"
 			row.add_child(_path_link(walked))
-		row.add_child(_path_node(str(steps[s].label), str(states[s])))
+		row.add_child(_path_node(_ribbon_label(str(steps[s].label)), str(states[s])))
 	return row
 
 
@@ -575,6 +575,17 @@ func _path_link(walked: bool) -> CenterContainer:
 	line.color = GOOD if walked else Color("d5cfc3")
 	hold.add_child(line)
 	return hold
+
+
+func _ribbon_label(label: String) -> String:
+	# Long stops collide with their neighbours. Keep the data labels; show the short form.
+	match label:
+		"Cart / Nest":
+			return "Cart"
+		"Last stall":
+			return "Stall 2"
+		_:
+			return label
 
 
 func _path_node(label: String, state: String) -> VBoxContainer:
@@ -763,19 +774,26 @@ func _enemy_preview(enc: Dictionary) -> GridContainer:
 			var spec: Dictionary = placed[i]
 			var d: Dictionary = Game.enemy_defs[str(spec.def)]
 			var boss: bool = bool(d.get("boss", false))
+			panel.clip_contents = true
+			panel.tooltip_text = str(d.name)
 			panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, INK, 2))
-			var box := VBoxContainer.new()
-			box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			box.add_theme_constant_override("separation", 0)
 			var holder := CenterContainer.new()
 			holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			holder.add_child(TOKENS.make(str(d.family), 1, 46.0, boss, TOKENS.enemy_mark(str(spec.def))))
-			box.add_child(holder)
-			var lab := _lbl(str(d.name), 11, INK)
-			lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			box.add_child(lab)
-			panel.add_child(box)
+			holder.clip_contents = true
+			holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+			holder.offset_left = 2
+			holder.offset_right = -2
+			holder.offset_top = 2
+			holder.offset_bottom = -18
+			holder.add_child(TOKENS.make(str(d.family), 1, 44.0, boss, TOKENS.enemy_mark(str(spec.def))))
+			panel.add_child(holder)
+			var band := _name_band(_short_name(str(d.name), 14), 10, INK)
+			band.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+			band.offset_left = 2
+			band.offset_right = -2
+			band.offset_top = -16
+			band.offset_bottom = -1
+			panel.add_child(band)
 		else:
 			panel.add_theme_stylebox_override("panel", _style(SLOT_EMPTY, Color("ddd6c8"), 1))
 		grid.add_child(panel)
@@ -1149,6 +1167,7 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 		width = 4
 		bg = Color(glow.r, glow.g, glow.b).lerp(SLOT_EMPTY, 0.78)
 	panel.add_theme_stylebox_override("panel", _style(bg, border, width))
+	panel.clip_contents = true
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.tooltip_text = _combat_detail(unit).replace("\n", "   ")
 	panel.gui_input.connect(func(ev: InputEvent) -> void:
@@ -1157,35 +1176,41 @@ func _combat_cell(unit, glow: Color, popping: Dictionary) -> Panel:
 			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 				_toggle_punch(unit)
 	)
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", 4)
-	margin.add_theme_constant_override("margin_right", 4)
-	margin.add_theme_constant_override("margin_top", 2)
-	margin.add_theme_constant_override("margin_bottom", 2)
-	panel.add_child(margin)
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 1)
-	margin.add_child(box)
 	panel.set_meta("uid", int(unit.uid))
-	var name := _lbl(_short_name(str(unit.name)), 14, INK if alive else MUTED)
-	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(name)
+	var band := _name_band(_short_name(str(unit.name), 12), 12, INK if alive else MUTED)
+	band.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	band.offset_left = 4
+	band.offset_right = -4
+	band.offset_top = 1
+	band.offset_bottom = 16
+	panel.add_child(band)
 	var fresh_kill: bool = popping.has(int(unit.uid))
-	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 72.0, bool(unit.get("boss", false)), TOKENS.unit_mark(unit))
+	var token := TOKENS.make(str(unit.family), int(unit.get("tier", 1)), 64.0, bool(unit.get("boss", false)), TOKENS.unit_mark(unit))
 	token.name = "Capsule"
 	if not alive and not fresh_kill:
 		token.modulate = Color(0.62, 0.62, 0.64)
 	var juice := _juice_wrap(token)
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	holder.clip_contents = true
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.offset_left = 4
+	holder.offset_right = -4
+	holder.offset_top = 18
+	holder.offset_bottom = -20
 	holder.add_child(juice)
-	box.add_child(holder)
-	box.add_child(_hp_bar(int(unit.hp), int(unit.max_hp)))
+	panel.add_child(holder)
+	var bar_band := Control.new()
+	bar_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_band.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bar_band.offset_left = 6
+	bar_band.offset_right = -6
+	bar_band.offset_top = -18
+	bar_band.offset_bottom = -2
+	var bar := _hp_bar(int(unit.hp), int(unit.max_hp))
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar_band.add_child(bar)
+	panel.add_child(bar_band)
 	return panel
 
 
@@ -1411,10 +1436,28 @@ func _teach_line() -> String:
 			return ""
 
 
-func _short_name(name: String) -> String:
-	if name.length() <= 14:
+func _short_name(name: String, limit: int = 12) -> String:
+	if name.length() <= limit:
 		return name
-	return name.substr(0, 13) + "…"
+	var head := str(name.split(" ")[0])
+	if head.length() <= limit and head != name:
+		return head
+	return name.substr(0, maxi(1, limit - 1)) + "…"
+
+
+func _name_band(text: String, size: int, color: Color) -> Control:
+	var band := Control.new()
+	band.name = "NameBand"
+	band.clip_contents = true
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lab := _lbl(text, size, color)
+	lab.clip_text = true
+	lab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lab.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band.add_child(lab)
+	return band
 
 
 func _chip(text: String, bg: Color) -> Panel:
