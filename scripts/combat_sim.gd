@@ -94,6 +94,8 @@ func setup(player_units: Array, encounter: Dictionary, defs: Dictionary, econ: D
 		"burn_taken": 0,
 		"boss": false,
 		"adds_summoned": 0,
+		"ranged_front_fell": false,
+		"melee_back_fell": false,
 	}
 	var offset := int(econ["ENEMY_X_OFFSET"])
 	for src in player_units:
@@ -178,6 +180,10 @@ func defeat_reason() -> String:
 		return "Outlasted — their side still stood when the clock ended"
 	if bool(stats.get("boss", false)) and int(stats.get("adds_summoned", 0)) > 0 and not bool(stats.get("had_splash", false)):
 		return "Adds swarmed the board — an Ember evolve splashes them"
+	if bool(stats.get("ranged_front_fell", false)):
+		return "Ranged in front melted"
+	if bool(stats.get("melee_back_fell", false)):
+		return "Melee in the back barely reached"
 	if not bool(stats.get("had_leaf", false)) and int(stats.get("damage_taken", 0)) > int(stats.get("damage_dealt", 0)):
 		return "Frontline melted — no Leaf buddies"
 	if int(stats.get("buddy_links", 0)) <= 0 and int(stats.get("fielded", 0)) >= 2:
@@ -200,6 +206,7 @@ func _fill_unit(src: Dictionary) -> Dictionary:
 	u.burn_applied = int(u.get("burn_applied", 0))
 	u.mend = str(u.get("mend", ""))
 	u.family = str(u.get("family", "beast"))
+	u.role = _role_name(u)
 	u.name = str(u.get("name", "Critter"))
 	u.uid = int(u.get("uid", 0))
 	u.boss = bool(u.get("boss", false))
@@ -231,6 +238,7 @@ func _make_enemy(def_id: String, local_x: int, local_y: int, offset: int = -1) -
 		"splash": int(d.get("splash", 0)),
 		"burn_applied": int(d.get("burn", 0)),
 		"mend": str(d.get("mend", "")),
+		"role": _role_name(d),
 		"boss": bool(d.get("boss", false)),
 		"side": "enemy",
 		"alive": true,
@@ -312,11 +320,11 @@ func _actors() -> Array:
 
 func _attack(actor: Dictionary) -> void:
 	var foes: Array = enemies if str(actor.side) == "ally" else allies
-	var target: Variant = _nearest(actor, foes)
+	var target: Variant = _pick_target(actor, foes)
 	if target == null:
 		return
 	cues.append({"uid": int(actor.uid), "kind": "windup"})
-	var dmg := maxi(1, _total_atk(actor) - _total_arm(target))
+	var dmg := maxi(1, _scaled_atk(actor) - _total_arm(target))
 	_hurt(target, dmg)
 	_count_damage(actor, dmg)
 	_log("%s → %s  %d" % [actor.name, target.name, dmg])
@@ -350,6 +358,95 @@ func _count_damage(src: Dictionary, amount: int) -> void:
 		stats.damage_taken = int(stats.damage_taken) + amount
 
 
+static func _role_name(src: Dictionary) -> String:
+	return "ranged" if str(src.get("role", "")) == "ranged" else "melee"
+
+
+static func rank_label(u: Dictionary) -> String:
+	var depth := 0
+	if str(u.get("side", "ally")) == "ally":
+		var pos := Vector2i(u.get("pos", Vector2i.ZERO))
+		depth = clampi(pos.x, 0, 2)
+	else:
+		depth = clampi(2 - int(u.get("local_x", 0)), 0, 2)
+	return ["Back", "Mid", "Front"][depth]
+
+
+func _role(u: Dictionary) -> String:
+	return _role_name(u)
+
+
+func _rank_depth(u: Dictionary) -> int:
+	# 2 is the column nearest the other board. Boards sit side by side,
+	# so the player's right column and the enemy's left column are Front.
+	if str(u.get("side", "ally")) == "ally":
+		return clampi(int(u.pos.x), 0, 2)
+	return clampi(2 - int(u.get("local_x", 0)), 0, 2)
+
+
+func _full_rank(u: Dictionary) -> bool:
+	var depth := _rank_depth(u)
+	if _role(u) == "ranged":
+		return depth <= 1
+	return depth >= 1
+
+
+func _scaled_atk(u: Dictionary) -> int:
+	var raw := _total_atk(u)
+	if _full_rank(u):
+		return raw
+	var num := int(economy.get("ROLE_OFF_RANK_NUM", 1))
+	var den := maxi(1, int(economy.get("ROLE_OFF_RANK_DEN", 2)))
+	return maxi(1, raw * num / den)
+
+
+func _pick_target(actor: Dictionary, foes: Array) -> Variant:
+	if _role(actor) == "ranged":
+		return _lowest_hp(actor, foes)
+	if str(actor.side) == "enemy":
+		var marked := _front_ranged(foes)
+		var prefer: Variant = _nearest(actor, marked)
+		if prefer != null:
+			return prefer
+	var front := _in_front(foes)
+	var line: Variant = _nearest(actor, front)
+	if line != null:
+		return line
+	return _nearest(actor, foes)
+
+
+func _front_ranged(foes: Array) -> Array:
+	var out: Array = []
+	for f in foes:
+		if bool(f.alive) and _role(f) == "ranged" and _rank_depth(f) == 2:
+			out.append(f)
+	return out
+
+
+func _in_front(foes: Array) -> Array:
+	var out: Array = []
+	for f in foes:
+		if bool(f.alive) and _rank_depth(f) == 2:
+			out.append(f)
+	return out
+
+
+func _lowest_hp(actor: Dictionary, foes: Array) -> Variant:
+	var best: Variant = null
+	var best_hp := 999999
+	var best_d := 9999
+	for f in foes:
+		if not bool(f.alive):
+			continue
+		var hp := int(f.hp)
+		var d := absi(int(f.pos.x) - int(actor.pos.x)) + absi(int(f.pos.y) - int(actor.pos.y))
+		if best == null or hp < best_hp or (hp == best_hp and d < best_d):
+			best = f
+			best_hp = hp
+			best_d = d
+	return best
+
+
 func _nearest(actor: Dictionary, foes: Array) -> Variant:
 	var best: Variant = null
 	var best_d := 9999
@@ -380,6 +477,10 @@ func _hurt(u: Dictionary, amount: int) -> void:
 		u.alive = false
 		cues.append({"uid": int(u.uid), "kind": "kill"})
 		_log("%s faints" % u.name)
+		if str(u.side) == "ally" and _role(u) == "ranged" and _rank_depth(u) == 2:
+			stats.ranged_front_fell = true
+		if str(u.side) == "ally" and _role(u) == "melee" and _rank_depth(u) == 0:
+			stats.melee_back_fell = true
 
 
 func _heal(u: Dictionary, amount: int) -> void:

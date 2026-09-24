@@ -78,7 +78,31 @@ static func unit_mark(unit) -> String:
 	return species_mark(str(unit.get("family", "")), str(unit.get("line", "")), int(unit.get("tier", 1)))
 
 
-static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "") -> Control:
+static func present(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
+	var token := make(family, tier, max_h, boss, mark, role)
+	token.name = "Capsule"
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sz := token.custom_minimum_size
+	box.custom_minimum_size = sz
+	box.size = sz
+	token.position = Vector2.ZERO
+	box.add_child(token)
+	if role == "melee" or role == "ranged":
+		var badge := Control.new()
+		badge.name = "RoleBadge"
+		badge.set_script(preload("res://scripts/mark.gd"))
+		badge.set("kind", role)
+		var s := clampf(sz.y * 0.36, 14.0, 28.0)
+		badge.custom_minimum_size = Vector2(s, s)
+		badge.size = Vector2(s, s)
+		badge.position = Vector2(sz.x - s * 0.78, -s * 0.12)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(badge)
+	return box
+
+
+static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
 	var rect := TextureRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -107,6 +131,12 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	elif mark == "sprig":
 		h *= 0.68
 	var w := h * aspect
+	if role == "melee":
+		w *= 1.16
+		h *= 0.9
+	elif role == "ranged":
+		w *= 0.84
+		h *= 1.14
 	var max_w := max_h * 1.9
 	if w > max_w:
 		w = max_w

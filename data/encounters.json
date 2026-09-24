@@ -1,12 +1,12 @@
 {
   "defs": {
-    "mite": {"name": "Meadow Mite", "family": "beast", "hp": 14, "atk": 3, "armor": 0, "regen": 0},
-    "mite_small": {"name": "Tired Mite", "family": "beast", "hp": 10, "atk": 2, "armor": 0, "regen": 0},
-    "barkling": {"name": "Barkling", "family": "leaf", "hp": 26, "atk": 5, "armor": 0, "regen": 0},
-    "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0},
-    "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 20, "atk": 6, "armor": 1, "regen": 0},
-    "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 120, "atk": 8, "armor": 2, "regen": 1, "boss": true},
-    "sprig": {"name": "Sprig Add", "family": "beast", "hp": 16, "atk": 5, "armor": 0, "regen": 0}
+    "mite": {"name": "Meadow Mite", "family": "beast", "hp": 14, "atk": 3, "armor": 0, "regen": 0, "role": "melee"},
+    "mite_small": {"name": "Tired Mite", "family": "beast", "hp": 10, "atk": 2, "armor": 0, "regen": 0, "role": "melee"},
+    "barkling": {"name": "Barkling", "family": "leaf", "hp": 26, "atk": 5, "armor": 0, "regen": 0, "role": "melee"},
+    "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0, "role": "melee"},
+    "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 20, "atk": 6, "armor": 1, "regen": 0, "role": "melee"},
+    "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 120, "atk": 8, "armor": 2, "regen": 1, "boss": true, "role": "ranged"},
+    "sprig": {"name": "Sprig Add", "family": "beast", "hp": 16, "atk": 5, "armor": 0, "regen": 0, "role": "melee"}
   },
   "encounters": {
     "sparring_pups": {
