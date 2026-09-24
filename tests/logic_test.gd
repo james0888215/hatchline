@@ -1705,20 +1705,29 @@ func _title_menu_err(main: Node) -> String:
 	if play.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
 		return "play button stretches"
 	var view_h := play.get_viewport_rect().size.y
-	if view_h > 1.0:
+	if view_h > 1.0 and play.size.y > 1.0:
 		var ui = load("res://scripts/main.gd")
-		var ceiling := float(ui.TITLE_NAV_CEILING) * view_h
+		var band := float(ui.TITLE_NAV_ANCHOR)
 		for nav_btn in [play, dex, options]:
-			if nav_btn.get_global_rect().end.y > ceiling:
-				return "title buttons sit below the cream sky"
+			var top: float = nav_btn.get_global_rect().position.y / view_h
+			if absf(top - band) > 0.04:
+				return "title buttons are not on the raised band"
+		var logo := main.find_child("TitleWordmark", true, false) as Control
+		if logo != null and logo.size.y > 1.0:
+			var word_top := logo.get_global_rect().position.y / view_h
+			if word_top < 0.06 or word_top > 0.14:
+				return "logo is not high in the sky"
 	if dex.size_flags_horizontal != Control.SIZE_SHRINK_CENTER or options.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
 		return "title nav stretches"
 	var play_box := play.get_theme_stylebox("normal")
-	if not (play_box is StyleBoxFlat) or (play_box as StyleBoxFlat).bg_color.b > 0.7:
-		return "play is not the primary button"
+	if not (play_box is StyleBoxFlat):
+		return "play pill missing"
+	var pill := play_box as StyleBoxFlat
+	if pill.bg_color.r < 0.95 or pill.bg_color.g < 0.90 or pill.get_border_width(SIDE_LEFT) < 4:
+		return "play is not a cream pill"
 	var dex_box := dex.get_theme_stylebox("normal")
-	if dex_box is StyleBoxFlat and (dex_box as StyleBoxFlat).bg_color.b < 0.7:
-		return "hatch-dex is styled as primary"
+	if dex_box is StyleBoxFlat and (dex_box as StyleBoxFlat).bg_color != pill.bg_color:
+		return "hatch-dex pill does not match play"
 	var mark := main.find_child("TitleMark", true, false)
 	if mark == null:
 		return "title mark missing"
@@ -1732,7 +1741,10 @@ func _title_menu_err(main: Node) -> String:
 		return "archive wordmark is the default"
 	if word.scale != Vector2.ONE:
 		return "wordmark is moving"
-	var stage_err := _title_stage_err(main, "flourish-title-underlay")
+	var version := main.find_child("TitleVersion", true, false) as Label
+	if version == null or version.text != "v0.playtest-1":
+		return "version crumb missing"
+	var stage_err := _title_stage_err(main)
 	if stage_err != "":
 		return stage_err
 	var park := main.find_child("ReservePark", true, false) as BaseButton
@@ -1756,7 +1768,7 @@ func _starter_pick_err(main: Node) -> String:
 	var menu_wash := main.find_child("StarterMeadow", true, false)
 	if menu_wash == null or int(menu_wash.z_index) >= 0:
 		return "menu wash should sit behind the starters"
-	var stage_err := _title_stage_err(main, "flourish-starter-pick")
+	var stage_err := _title_stage_err(main)
 	if stage_err != "":
 		return stage_err
 	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
@@ -1769,39 +1781,36 @@ func _starter_pick_err(main: Node) -> String:
 	return ""
 
 
-func _title_stage_err(main: Node, flourish_name: String) -> String:
-	var plate := main.find_child("TitleTexture", true, false)
-	var hills := main.find_child("TitleFlourish", true, false)
-	if plate == null or hills == null:
-		return "title stage missing"
-	if int(plate.z_index) >= int(hills.z_index) or int(hills.z_index) >= 0:
-		return "flourish is not between the texture and the chrome"
-	if plate is TextureRect:
-		var plate_rect := plate as TextureRect
-		var plate_path := str(plate_rect.texture.resource_path)
-		var ui = load("res://scripts/main.gd")
-		if str(ui.TITLE_TEXTURE_CHOICE) != "B":
-			return "texture B is not first"
-		if "bg-title-texture-A" not in str(ui.TITLE_TEXTURE_A):
-			return "paper texture swap missing"
-		if "bg-title-texture-B" not in plate_path or "muddy" in plate_path:
-			return "title is not showing the meadow texture"
-		if plate_rect.modulate.a < 0.95:
-			return "meadow texture is faded"
-	elif plate is ColorRect:
-		var paper: Color = (plate as ColorRect).color
-		if paper.r < 0.9 or paper.g < 0.9:
-			return "cream placeholder is not paper"
-	else:
-		return "title texture is not a plate"
-	if not (hills is TextureRect):
-		return "flourish missing"
-	var hill := hills as TextureRect
-	var hill_path := str(hill.texture.resource_path)
-	if flourish_name not in hill_path:
-		return "wrong flourish"
-	if hill.stretch_mode == TextureRect.STRETCH_SCALE:
-		return "flourish is stretched"
+func _title_stage_err(main: Node) -> String:
+	var ui = load("res://scripts/main.gd")
+	if str(ui.TITLE_BG_CHOICE) != "pack":
+		return "pack stack is not the default"
+	if "title-composite-painted-alt" not in str(ui.TITLE_PAINTED_ALT):
+		return "painted alt is not loadable"
+	if "bg-title-texture-B" not in str(ui.TITLE_TEXTURE_B):
+		return "meadow fallback missing"
+	if main.find_child("TitleTexture", true, false) != null:
+		return "meadow fallback is showing"
+	var names := ["TitleSky", "TitleClouds", "TitleFar", "TitleMid", "TitleNear", "TitlePaper"]
+	var prev_z := -100
+	for layer_name in names:
+		var layer := main.find_child(layer_name, true, false)
+		if layer == null:
+			return "missing " + layer_name
+		if int(layer.z_index) <= prev_z or int(layer.z_index) >= 0:
+			return "scenery is out of order"
+		prev_z = int(layer.z_index)
+	var clouds := main.find_child("TitleClouds", true, false)
+	var drift := float(clouds.get_meta("drift_px"))
+	var drift_sec := float(clouds.get_meta("drift_sec"))
+	if drift < 8.0 or drift > 16.0 or drift_sec < 12.0 or drift_sec > 20.0:
+		return "cloud drift is out of band"
+	var paper := main.find_child("TitlePaper", true, false) as CanvasItem
+	if paper.modulate.a < 0.08 or paper.modulate.a > 0.12:
+		return "paper softlight is not a light veil"
+	var sky_art := main.find_child("TitleSkyArt", true, false) as TextureRect
+	if sky_art == null or sky_art.texture == null or "layers/sky" not in str(sky_art.texture.resource_path):
+		return "sky layer missing"
 	return ""
 
 

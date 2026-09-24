@@ -7,21 +7,34 @@ const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
 # Title chrome only. In-run wash stays meadow-wash-v2.
-# Logo is the v1.2 trio wordmark. Texture B is the Stardew-leaning meadow.
-# The path stays put so a later free pack can replace the file.
-# "A" is the quiet paper swap. The muddy sheet lives under archive/ and is not used.
+# Default scenic title is the pack stack. Meadow B and the painted alt are swaps.
+# Logo stays the trio wordmark. James locked the first pill at 58% from the top.
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
-const TITLE_TEXTURE_CHOICE := "B"
+const TITLE_COMPOSITE := TITLE_ART_DIR + "/composite"
+const TITLE_BG_CHOICE := "pack"
 const TITLE_LOGO_PX := 512
-# Hills on texture B start about 44–48% down a 720px frame. The nav stays above that.
-const TITLE_NAV_CEILING := 0.42
+const TITLE_LOGO_ANCHOR := 0.09
+const TITLE_NAV_ANCHOR := 0.58
 const TITLE_HOVER_SCALE := 1.03
-const TITLE_HOVER_SEC := 0.11
+const TITLE_HOVER_SEC := 0.15
+const TITLE_VERSION := "v0.playtest-1"
+const CLOUD_DRIFT_PX := 12.0
+const CLOUD_DRIFT_SEC := 16.0
+const FAR_DRIFT_PX := 6.0
+const FAR_DRIFT_SEC := 32.0
+const MID_DRIFT_PX := 8.0
+const MID_DRIFT_SEC := 24.0
+const NEAR_DRIFT_PX := 3.0
+const NEAR_DRIFT_SEC := 40.0
+const PAPER_SOFT_ALPHA := 0.10
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
+const TITLE_PAINTED_ALT := TITLE_COMPOSITE + "/title-composite-painted-alt.png"
 const FLOURISH_TITLE := TITLE_ART_DIR + "/flourish-title-underlay-1280x800.png"
 const FLOURISH_PICK := TITLE_ART_DIR + "/flourish-starter-pick-1280x800.png"
 const TITLE_PAPER := Color("F7F2E8")
+const TITLE_PILL := Color("FAF6EE")
+const TITLE_CHARCOAL := Color("2C2A28")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -313,26 +326,62 @@ func _build_start(page: VBoxContainer) -> void:
 
 
 func _build_title_menu(page: VBoxContainer) -> void:
-	# Logo and Play / Hatch-dex / Options stay in the cream sky, above TITLE_NAV_CEILING.
-	page.add_child(_v_spacer(false, 16.0))
-	page.add_child(_title_mark())
-	page.add_child(_dex_status())
-	page.add_child(_v_spacer(false, 18.0))
-	var play := _menu_btn("Play", "PlayButton", true)
+	var margin := page.get_parent()
+	if margin is MarginContainer:
+		margin.add_theme_constant_override("margin_left", 0)
+		margin.add_theme_constant_override("margin_right", 0)
+		margin.add_theme_constant_override("margin_top", 0)
+		margin.add_theme_constant_override("margin_bottom", 0)
+	var stage := Control.new()
+	stage.name = "TitleChrome"
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(stage)
+	var cluster := VBoxContainer.new()
+	cluster.name = "TitleCluster"
+	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+	cluster.add_theme_constant_override("separation", 4)
+	cluster.add_child(_title_mark())
+	cluster.add_child(_dex_status())
+	_pin_band(cluster, TITLE_LOGO_ANCHOR, 176.0)
+	stage.add_child(cluster)
+	var play := _title_pill("Play", "PlayButton")
 	play.pressed.connect(_open_starter_pick)
-	var dex := _menu_btn("Hatch-dex", "DexButton", false)
+	var dex := _title_pill("Hatch-dex", "DexButton")
 	dex.pressed.connect(_open_dex)
-	var options := _menu_btn("Options", "OptionsButton", false)
+	var options := _title_pill("Options", "OptionsButton")
 	options.pressed.connect(_open_options)
-	var nav := _center_row([play, dex, options], 16)
+	var nav := _center_row([play, dex, options], 18)
 	nav.name = "TitleNav"
-	page.add_child(nav)
-	page.add_child(_v_spacer(true, 12.0))
+	_pin_band(nav, TITLE_NAV_ANCHOR, 54.0)
+	stage.add_child(nav)
 	var later := _centered_lbl("Later circuits", 13, MUTED)
 	later.name = "LaterCircuits"
-	page.add_child(later)
-	page.add_child(_tease_row())
-	page.add_child(_v_spacer(false, 8.0))
+	_pin_band(later, TITLE_NAV_ANCHOR, 22.0)
+	later.offset_top = 62.0
+	later.offset_bottom = 84.0
+	stage.add_child(later)
+	var teases := _tease_row()
+	_pin_band(teases, TITLE_NAV_ANCHOR, 34.0)
+	teases.offset_top = 88.0
+	teases.offset_bottom = 122.0
+	stage.add_child(teases)
+	var version := _lbl(TITLE_VERSION, 12, Color(TITLE_CHARCOAL, 0.72))
+	version.name = "TitleVersion"
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.anchor_left = 1.0
+	version.anchor_right = 1.0
+	version.anchor_top = 1.0
+	version.anchor_bottom = 1.0
+	version.offset_left = -168.0
+	version.offset_right = -16.0
+	version.offset_top = -28.0
+	version.offset_bottom = -10.0
+	version.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	version.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	stage.add_child(version)
 
 
 func _build_starter_pick(page: VBoxContainer) -> void:
@@ -415,25 +464,84 @@ func _open_options() -> void:
 
 
 func _add_title_stage(for_pick: bool) -> void:
-	# texture underlay → flourish hills → logo and buttons (page z 0)
-	# One meadow plate plus one flourish. Cloud and hill drift waits until a
-	# scenic pack ships those as separate layers. The wordmark stays still.
-	var plate := _title_plate(_title_tex(_title_texture_path()))
+	if TITLE_BG_CHOICE == "pack" and _title_tex(_pack_layer_path("sky.png")) != null:
+		_add_pack_stack()
+		return
+	if TITLE_BG_CHOICE == "painted" and _title_tex(TITLE_PAINTED_ALT) != null:
+		var alt := _title_plate(_title_tex(TITLE_PAINTED_ALT))
+		alt.name = "TitlePainted"
+		alt.z_index = -6
+		host.add_child(alt)
+		return
+	_add_meadow_fallback(for_pick)
+
+
+func _add_pack_stack() -> void:
+	# sky → clouds → far → mid → near → paper → logo and buttons (page z 0)
+	host.add_child(_pack_layer("TitleSky", "sky.png", -20, 0.0, 0.0))
+	host.add_child(_pack_layer("TitleClouds", "clouds.png", -16, CLOUD_DRIFT_PX, CLOUD_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleFar", "far.png", -14, FAR_DRIFT_PX, FAR_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleMid", "mid.png", -12, MID_DRIFT_PX, MID_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleNear", "near.png", -10, NEAR_DRIFT_PX, NEAR_DRIFT_SEC))
+	var paper := _pack_layer("TitlePaper", "paper-softlight.png", -8, 0.0, 0.0)
+	paper.modulate = Color(1, 1, 1, PAPER_SOFT_ALPHA)
+	host.add_child(paper)
+
+
+func _pack_layer_path(file_name: String) -> String:
+	return "%s/layers/%s" % [TITLE_COMPOSITE, file_name]
+
+
+func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, drift_sec: float) -> Control:
+	var clip := Control.new()
+	clip.name = node_name
+	clip.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.clip_contents = true
+	clip.z_index = z
+	clip.set_meta("drift_px", drift_px)
+	clip.set_meta("drift_sec", drift_sec)
+	var rect := TextureRect.new()
+	rect.name = node_name + "Art"
+	rect.texture = _title_tex(_pack_layer_path(file_name))
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	clip.add_child(rect)
+	if drift_px <= 0.0:
+		rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		return clip
+	var fit := func() -> void:
+		rect.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		rect.position.y = 0.0
+		rect.size = clip.size + Vector2(drift_px, 0.0)
+	clip.resized.connect(fit)
+	fit.call()
+	rect.position.x = -drift_px
+	var tw := rect.create_tween()
+	tw.set_loops()
+	tw.tween_property(rect, "position:x", 0.0, drift_sec).set_trans(Tween.TRANS_LINEAR)
+	tw.tween_property(rect, "position:x", -drift_px, drift_sec).set_trans(Tween.TRANS_LINEAR)
+	rect.set_meta("drift_tw", tw)
+	return clip
+
+
+func _add_meadow_fallback(for_pick: bool) -> void:
+	var plate := _title_plate(_title_tex(TITLE_TEXTURE_B))
 	plate.name = "TitleTexture"
 	plate.z_index = -6
-	plate.modulate = Color(1, 1, 1, 1)
 	host.add_child(plate)
 	var hills := _title_plate(_title_tex(FLOURISH_PICK if for_pick else FLOURISH_TITLE))
 	hills.name = "TitleFlourish"
 	hills.z_index = -4
-	hills.modulate = Color(1, 1, 1, 1)
 	host.add_child(hills)
 
 
 func _title_texture_path() -> String:
-	if TITLE_TEXTURE_CHOICE == "B":
-		return TITLE_TEXTURE_B
-	return TITLE_TEXTURE_A
+	if TITLE_BG_CHOICE == "painted":
+		return TITLE_PAINTED_ALT
+	return TITLE_TEXTURE_B
 
 
 func _trio_logo_path() -> String:
@@ -513,6 +621,45 @@ func _dex_status() -> Label:
 	return line
 
 
+func _title_pill(text: String, node_name: String) -> Button:
+	var b := _btn(text, Vector2(300, 54))
+	b.name = node_name
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.clip_text = false
+	b.add_theme_font_size_override("font_size", 18)
+	var normal := _pill_style(TITLE_PILL)
+	var hover := _pill_style(Color("fff8ee"))
+	var pressed := _pill_style(Color("f0e6d4"))
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", normal)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(state, TITLE_CHARCOAL)
+	_arm_title_hover(b)
+	return b
+
+
+func _pill_style(fill: Color) -> StyleBoxFlat:
+	var box := _style(fill, TITLE_CHARCOAL, 4)
+	box.set_corner_radius_all(27)
+	return box
+
+
+func _pin_band(node: Control, anchor: float, height: float) -> void:
+	node.anchor_left = 0.0
+	node.anchor_right = 1.0
+	node.anchor_top = anchor
+	node.anchor_bottom = anchor
+	node.offset_left = 0.0
+	node.offset_right = 0.0
+	node.offset_top = 0.0
+	node.offset_bottom = height
+	node.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	node.grow_vertical = Control.GROW_DIRECTION_END
+
+
 func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
 	var b := _btn(text, Vector2(200, 52))
 	b.name = node_name
@@ -528,13 +675,17 @@ func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
 		b.add_theme_stylebox_override("hover", hover)
 		b.add_theme_stylebox_override("pressed", pressed)
 		b.add_theme_stylebox_override("focus", normal)
+	_arm_title_hover(b)
+	return b
+
+
+func _arm_title_hover(b: Button) -> void:
 	b.mouse_entered.connect(func() -> void:
 		_title_hover(b, TITLE_HOVER_SCALE)
 	)
 	b.mouse_exited.connect(func() -> void:
 		_title_hover(b, 1.0)
 	)
-	return b
 
 
 func _title_hover(b: Button, target: float) -> void:

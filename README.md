@@ -10,7 +10,9 @@ Critters on the board, bench, shop, and combat grid are flat capsule tokens from
 - [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
 - [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp (starters-v1.1-subtle). The board uses the 64px static sheet; tight lists use 32. Idle is 6 frames at 5 FPS on one shared clock. Merge is a 6-frame one-shot at 9 FPS, then idle. Every other species stays a capsule.
 - [`art/style-lock/motion/MOTION_BRIEF_v1.md`](art/style-lock/motion/MOTION_BRIEF_v1.md) — playback lock for idle, merge, and title hover.
-- Title — `art/style-lock/title-menu-v1/`. The logo is `wordmark-hatchline-trio-512.png` (smaller trio above the word) and it does not bob. Default background is `bg-title-texture-B-meadow-1280x800.png`; that path stays so a later scenic pack can replace the file. Paper A is `TITLE_TEXTURE_CHOICE`. The muddy meadow is archived and is not shown. Play, Hatch-dex, and Options stay in the cream sky, above 42% of the screen, and grow to 1.03 on hover only.
+- Title — `art/style-lock/title-menu-v1/composite/`. The default is the pack stack (sky, drifting clouds, far, mid, near, a light paper veil). The logo is `wordmark-hatchline-trio-512.png`, high in the sky, and it does not bob. Play, Hatch-dex, and Options are cream pills whose first band sits at 58% of the screen. They grow to 1.03 on hover. Meadow texture B and `title-composite-painted-alt.png` stay as swaps (`TITLE_BG_CHOICE`).
+
+Sky art is edermunizz, [Simple Pastel Backgrounds](https://edermunizz.itch.io/free-simple-pastel-backgrounds) (attribution required). Hill layers are najjar320 VISTA (CC0). Clouds are GarzettDev. The paper veil is CC0. The painted alternate, if used, is heartpunch (CC0).
 
 `tools/extract_tokens.py` recuts the tokens if the sheets change. Body, face, and the single family mark stay on the sheet; tier is size plus that one silhouette add.
 
