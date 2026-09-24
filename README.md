@@ -9,7 +9,7 @@ Critters on the board, bench, shop, and combat grid are flat capsule tokens from
 - [`art/style-lock/`](art/style-lock/) — locked reference: `STYLE_LOCK.md`, the mood board, Leaf / Ember / Puff silhouette sheets, and the combat mock.
 - [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
 - [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp only (soft-patched starters-v1). The board uses the 64px static sheet; tight lists use 32. Idle is the same 4 frames with a longer hold on the rest poses, then a 5-frame merge one-shot when that line triples. Every other species stays a capsule.
-- Title — `art/style-lock/title-menu-v1/`. The logo is `wordmark-hatchline-trio-512.png`. Meadow texture B is the background, blended so the button band stays near cream. Paper texture A is `TITLE_TEXTURE_CHOICE`. Side-icon and type-only wordmarks stay in that folder as archive.
+- Title — `art/style-lock/title-menu-v1/`. The logo is `wordmark-hatchline-trio-512.png` (smaller trio above the word). Default background is `bg-title-texture-B-meadow-1280x800.png`; that path stays so a later sheet can replace it. Paper A is `TITLE_TEXTURE_CHOICE`. The muddy meadow is archived and not shown.
 
 `tools/extract_tokens.py` recuts the tokens if the sheets change. Body, face, and the single family mark stay on the sheet; tier is size plus that one silhouette add.
 

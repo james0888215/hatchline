@@ -7,12 +7,11 @@ const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
 # Title chrome only. In-run wash stays meadow-wash-v2.
-# Logo is the trio wordmark. Texture B is first; A is the one-line swap.
-# B's button band peaks about 17% off cream, so it is blended down until
-# that band sits on the 8% line. Flourish mid-band alpha is already under 5%.
+# Logo is the v1.2 trio wordmark. Texture B is the Stardew-leaning meadow.
+# The path stays put so a later free pack can replace the file.
+# "A" is the quiet paper swap. The muddy sheet lives under archive/ and is not used.
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
 const TITLE_TEXTURE_CHOICE := "B"
-const TITLE_TEXTURE_B_MODULATE := 0.36
 const TITLE_LOGO_PX := 512
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
@@ -310,7 +309,8 @@ func _build_start(page: VBoxContainer) -> void:
 
 
 func _build_title_menu(page: VBoxContainer) -> void:
-	page.add_child(_v_spacer(true, 12.0))
+	# Logo and the three buttons stay in the cream sky. The meadow is the lower third.
+	page.add_child(_v_spacer(false, 36.0))
 	page.add_child(_title_mark())
 	page.add_child(_dex_status())
 	page.add_child(_v_spacer(false, 18.0))
@@ -415,8 +415,7 @@ func _add_title_stage(for_pick: bool) -> void:
 	var plate := _title_plate(_title_tex(_title_texture_path()))
 	plate.name = "TitleTexture"
 	plate.z_index = -6
-	if TITLE_TEXTURE_CHOICE == "B":
-		plate.modulate = Color(1, 1, 1, TITLE_TEXTURE_B_MODULATE)
+	plate.modulate = Color(1, 1, 1, 1)
 	host.add_child(plate)
 	var hills := _title_plate(_title_tex(FLOURISH_PICK if for_pick else FLOURISH_TITLE))
 	hills.name = "TitleFlourish"
@@ -492,10 +491,11 @@ func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
 	if tex == null:
 		hook.custom_minimum_size = Vector2.ZERO
 		return hook
-	var h := 148.0
-	var w := h
-	if tex.get_height() > 0:
-		w = h * float(tex.get_width()) / float(tex.get_height())
+	var h := float(tex.get_height())
+	var w := float(tex.get_width())
+	if h > 132.0:
+		w = 132.0 * w / h
+		h = 132.0
 	hook.custom_minimum_size = Vector2(w, h)
 	return hook
 

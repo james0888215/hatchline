@@ -1729,10 +1729,10 @@ func _title_stage_err(main: Node, flourish_name: String) -> String:
 			return "texture B is not first"
 		if "bg-title-texture-A" not in str(ui.TITLE_TEXTURE_A):
 			return "paper texture swap missing"
-		if "bg-title-texture-B" not in plate_path:
-			return "title is not showing meadow texture B"
-		if plate_rect.modulate.a > 0.4 or plate_rect.modulate.a < 0.3:
-			return "meadow texture is not eased off the buttons"
+		if "bg-title-texture-B" not in plate_path or "muddy" in plate_path:
+			return "title is not showing the meadow texture"
+		if plate_rect.modulate.a < 0.95:
+			return "meadow texture is faded"
 	elif plate is ColorRect:
 		var paper: Color = (plate as ColorRect).color
 		if paper.r < 0.9 or paper.g < 0.9:
