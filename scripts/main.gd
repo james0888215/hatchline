@@ -6,14 +6,18 @@ const LINKS := preload("res://scripts/buddy_overlay.gd")
 const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
-# James locked the title mark as Sproutling, Sparkpup, and Cottonwisp
-# centered above the Hatchline wordmark. Art's title-menu-v1 pack is not
-# in the tree yet. Drop it on these paths (one file, or trio + wordmark).
-# Do not point this at wordmark-hatchline-icon-* — that side icon is not the lock.
+# Title chrome only. In-run wash stays meadow-wash-v2.
+# Logo hook is the trio wordmark. Art is overwriting those files in place.
+# Texture "A" is the temporary quiet paper. "B" is the meadow sheet Art is
+# regenerating — do not default to the muddy file.
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
-const TITLE_LOCK := TITLE_ART_DIR + "/title-lock.png"
-const TITLE_TRIO := TITLE_ART_DIR + "/title-trio.png"
-const TITLE_WORDMARK := TITLE_ART_DIR + "/title-wordmark.png"
+const TITLE_TEXTURE_CHOICE := "A"
+const TITLE_LOGO_PX := 512
+const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
+const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
+const FLOURISH_TITLE := TITLE_ART_DIR + "/flourish-title-underlay-1280x800.png"
+const FLOURISH_PICK := TITLE_ART_DIR + "/flourish-starter-pick-1280x800.png"
+const TITLE_PAPER := Color("F7F2E8")
 
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
@@ -130,7 +134,10 @@ func _rebuild() -> void:
 		tick.stop()
 		_ending = false
 	_clear_host()
-	if Game.phase == "start" or Game.phase == "prep" or Game.phase == "combat":
+	var title_stage := Game.phase == "start" and not dex_open and not options_open
+	if title_stage:
+		_add_title_stage(pick_open)
+	elif Game.phase == "start" or Game.phase == "prep" or Game.phase == "combat":
 		var back = MEADOW.new()
 		back.name = "MenuWash" if Game.phase == "start" else "MeadowWash"
 		back.sheet = "menu" if Game.phase == "start" else "battle"
@@ -402,24 +409,62 @@ func _open_options() -> void:
 	_queue_rebuild()
 
 
+func _add_title_stage(for_pick: bool) -> void:
+	# texture underlay → flourish hills → logo and buttons (page z 0)
+	var plate := _title_plate(_title_tex(_title_texture_path()))
+	plate.name = "TitleTexture"
+	plate.z_index = -6
+	host.add_child(plate)
+	var hills := _title_plate(_title_tex(FLOURISH_PICK if for_pick else FLOURISH_TITLE))
+	hills.name = "TitleFlourish"
+	hills.z_index = -4
+	# Hill alpha is baked (peak ≤ 0.22). A second multiply, or a ColorRect
+	# on top of the paper, would either kill the hills or muddy the cream.
+	hills.modulate = Color(1, 1, 1, 1)
+	host.add_child(hills)
+
+
+func _title_texture_path() -> String:
+	if TITLE_TEXTURE_CHOICE == "B":
+		return TITLE_TEXTURE_B
+	return TITLE_TEXTURE_A
+
+
+func _trio_logo_path() -> String:
+	return "%s/wordmark-hatchline-trio-%d.png" % [TITLE_ART_DIR, TITLE_LOGO_PX]
+
+
+func _title_plate(tex: Texture2D) -> Control:
+	if tex == null:
+		var cream := ColorRect.new()
+		cream.color = TITLE_PAPER
+		cream.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cream.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return cream
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.clip_contents = true
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	# Uniform cover. Squashing 800px into 720px pulls the hills into the buttons.
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	return rect
+
+
 func _title_mark() -> Control:
 	var box := VBoxContainer.new()
 	box.name = "TitleMark"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 4)
-	var lock := _title_tex(TITLE_LOCK)
-	if lock != null:
-		box.add_child(_title_rect("TitleLock", lock, "Art lock: trio centered above the Hatchline wordmark."))
-	else:
-		# Empty until title-menu-v1 lands. Trio slot sits above the wordmark slot.
-		box.add_child(_title_rect("TitleTrio", _title_tex(TITLE_TRIO), "Art hook: Sproutling, Sparkpup, and Cottonwisp above the wordmark."))
-		var word := _title_tex(TITLE_WORDMARK)
-		box.add_child(_title_rect("TitleWordmark", word, "Art hook: Hatchline wordmark only. Not the side-icon lock."))
-		if word == null:
-			var placeholder := _centered_lbl("HATCHLINE", 48, INK)
-			placeholder.name = "TitlePlaceholder"
-			box.add_child(placeholder)
+	var logo := _title_tex(_trio_logo_path())
+	box.add_child(_title_rect("TitleWordmark", logo, "Trio above the Hatchline wordmark. Art overwrites this file in place."))
+	if logo == null:
+		var placeholder := _centered_lbl("HATCHLINE", 48, INK)
+		placeholder.name = "TitlePlaceholder"
+		box.add_child(placeholder)
 	var sub := _centered_lbl("Meadow Circuit", 18, MUTED)
 	sub.name = "TitleSubtitle"
 	box.add_child(sub)
@@ -427,8 +472,6 @@ func _title_mark() -> Control:
 
 
 func _title_tex(path: String) -> Texture2D:
-	if "wordmark-hatchline-icon" in path:
-		return null
 	if not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
@@ -448,11 +491,7 @@ func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
 	if tex == null:
 		hook.custom_minimum_size = Vector2.ZERO
 		return hook
-	var h := 96.0
-	if node_name == "TitleTrio":
-		h = 132.0
-	elif node_name == "TitleLock":
-		h = 180.0
+	var h := 148.0
 	var w := h
 	if tex.get_height() > 0:
 		w = h * float(tex.get_width()) / float(tex.get_height())

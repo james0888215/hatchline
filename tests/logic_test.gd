@@ -1669,31 +1669,17 @@ func _title_menu_err(main: Node) -> String:
 	var mark := main.find_child("TitleMark", true, false)
 	if mark == null:
 		return "title mark missing"
-	var trio := main.find_child("TitleTrio", true, false) as TextureRect
 	var word := main.find_child("TitleWordmark", true, false) as TextureRect
-	var lock := main.find_child("TitleLock", true, false) as TextureRect
-	if lock == null:
-		if trio == null or word == null:
-			return "title trio/wordmark hook missing"
-		if trio.get_parent() != word.get_parent() or trio.get_index() > word.get_index():
-			return "trio hook is not above the wordmark"
-		if word.texture == null:
-			var placeholder := main.find_child("TitlePlaceholder", true, false)
-			if placeholder == null or "HATCHLINE" not in str(placeholder.text):
-				return "wordmark-only placeholder missing"
-	for hook in [trio, word, lock]:
-		if hook == null or hook.texture == null:
-			continue
-		if "wordmark-hatchline-icon" in str(hook.texture.resource_path):
-			return "title locked to the side-icon wordmark"
-	var menu_under := main.find_child("MenuWash", true, false)
-	if menu_under == null or int(menu_under.z_index) >= 0:
-		return "menu underlay should sit behind the page"
-	var menu_tex := menu_under.find_child("WashUnderlay", true, false)
-	if menu_tex == null or not (menu_tex is TextureRect):
-		return "menu underlay texture missing"
-	if "wash-underlay-menu" not in str((menu_tex as TextureRect).texture.resource_path):
-		return "menu underlay is not the menu sheet"
+	if word == null or word.texture == null:
+		return "trio wordmark missing"
+	var word_path := str(word.texture.resource_path)
+	if "wordmark-hatchline-trio" not in word_path:
+		return "title logo is not the trio wordmark"
+	if "wordmark-hatchline-icon" in word_path or "wordmark-hatchline-only" in word_path:
+		return "archive wordmark is the default"
+	var stage_err := _title_stage_err(main, "flourish-title-underlay")
+	if stage_err != "":
+		return stage_err
 	var park := main.find_child("ReservePark", true, false) as BaseButton
 	var trail := main.find_child("SeasonTrail", true, false) as BaseButton
 	if park == null or trail == null or not park.disabled or not trail.disabled:
@@ -1715,9 +1701,9 @@ func _starter_pick_err(main: Node) -> String:
 	var menu_wash := main.find_child("StarterMeadow", true, false)
 	if menu_wash == null or int(menu_wash.z_index) >= 0:
 		return "menu wash should sit behind the starters"
-	var menu_under := main.find_child("MenuWash", true, false)
-	if menu_under == null or int(menu_under.z_index) >= 0:
-		return "menu underlay should sit behind the pick"
+	var stage_err := _title_stage_err(main, "flourish-starter-pick")
+	if stage_err != "":
+		return stage_err
 	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
 		if main.find_child("Starter_%s" % starter_id, true, false) == null:
 			return "missing starter " + starter_id
@@ -1725,6 +1711,36 @@ func _starter_pick_err(main: Node) -> String:
 		return "budmite still on the starter row"
 	if main.find_child("BackButton", true, false) == null:
 		return "starter pick back missing"
+	return ""
+
+
+func _title_stage_err(main: Node, flourish_name: String) -> String:
+	var plate := main.find_child("TitleTexture", true, false)
+	var hills := main.find_child("TitleFlourish", true, false)
+	if plate == null or hills == null:
+		return "title stage missing"
+	if int(plate.z_index) >= int(hills.z_index) or int(hills.z_index) >= 0:
+		return "flourish is not between the texture and the chrome"
+	if plate is TextureRect:
+		var plate_path := str((plate as TextureRect).texture.resource_path)
+		if "bg-title-texture-A" not in plate_path:
+			return "title texture is not the temporary paper"
+		if "texture-B" in plate_path:
+			return "muddy meadow texture is the default"
+	elif plate is ColorRect:
+		var paper: Color = (plate as ColorRect).color
+		if paper.r < 0.9 or paper.g < 0.9:
+			return "cream placeholder is not paper"
+	else:
+		return "title texture is not a plate"
+	if not (hills is TextureRect):
+		return "flourish missing"
+	var hill := hills as TextureRect
+	var hill_path := str(hill.texture.resource_path)
+	if flourish_name not in hill_path:
+		return "wrong flourish"
+	if hill.stretch_mode == TextureRect.STRETCH_SCALE:
+		return "flourish is stretched"
 	return ""
 
 
