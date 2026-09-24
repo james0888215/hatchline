@@ -1801,11 +1801,21 @@ func _juice_busy(node: Control) -> bool:
 func _tween_juice(node: Control, entries: Array, k: float) -> void:
 	var has_kill := false
 	var via := ""
+	var needs_body := false
 	for entry in entries:
-		if str(entry.kind) == "kill":
+		var step := str(entry.kind)
+		if step == "kill":
 			has_kill = true
+		if step == "hit" or step == "kill":
+			needs_body = true
+		if step == "windup" and str(entry.get("role", "")) == "ranged":
+			_spit(node, int(entry.get("target", -1)), k)
+		elif step == "windup":
+			needs_body = true
 		if str(entry.get("via", "")) != "":
 			via = str(entry.via)
+	if not needs_body:
+		return
 	if node.has_meta("juice_tw"):
 		var old = node.get_meta("juice_tw")
 		if old is Tween and (old as Tween).is_valid():
@@ -1825,9 +1835,7 @@ func _tween_juice(node: Control, entries: Array, k: float) -> void:
 	for entry in entries:
 		var step := str(entry.kind)
 		if step == "windup":
-			if str(entry.get("role", "")) == "ranged":
-				_spit(node, int(entry.get("target", -1)), k)
-			else:
+			if str(entry.get("role", "")) != "ranged":
 				_lunge(node, int(entry.get("target", -1)), tw, k)
 		elif step == "hit":
 			if has_kill:
