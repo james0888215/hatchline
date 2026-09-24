@@ -1354,6 +1354,33 @@ func _test_ui() -> String:
 	var pick_err := _starter_pick_err(main)
 	if pick_err != "":
 		return pick_err
+	var wisp := main.find_child("Starter_cottonwisp", true, false) as BaseButton
+	wisp.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if wisp.scale.x < 1.02 or wisp.scale.x > 1.04:
+		return "starter card hover is not 1.03"
+	var wisp_face := wisp.find_child("Capsule", true, false) as Control
+	if wisp_face == null or wisp_face.scale != Vector2.ONE:
+		return "starter idle is scaling"
+	wisp.mouse_exited.emit()
+	await create_timer(0.2).timeout
+	if absf(wisp.scale.x - 1.0) > 0.02:
+		return "starter card hover did not return"
+	var spark := main.find_child("Starter_sparkpup", true, false) as BaseButton
+	spark.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if absf(spark.scale.x - 1.045) > 0.02:
+		return "selected card hover changed the scale"
+	var confirm_hover := main.find_child("ConfirmButton", true, false) as BaseButton
+	confirm_hover.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if confirm_hover.scale.x < 1.02 or confirm_hover.scale.x > 1.04:
+		return "confirm hover is not 1.03"
+	var back_hover := main.find_child("BackButton", true, false) as BaseButton
+	back_hover.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if back_hover.scale.x < 1.02 or back_hover.scale.x > 1.04:
+		return "back hover is not 1.03"
 	var pick_back: Node = main.find_child("BackButton", true, false)
 	pick_back.pressed.emit()
 	await process_frame
@@ -1376,6 +1403,17 @@ func _test_ui() -> String:
 	if sprout == null:
 		return "sproutling card missing"
 	sprout.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "start":
+		return "card press started the run"
+	sprout = main.find_child("Starter_sproutling", true, false) as BaseButton
+	if sprout == null or absf((sprout as BaseButton).scale.x - 1.045) > 0.02:
+		return "sproutling did not select"
+	var confirm: Node = main.find_child("ConfirmButton", true, false)
+	if confirm == null:
+		return "confirm missing"
+	confirm.pressed.emit()
 	await process_frame
 	await process_frame
 	if str(g.run.node_id) != "sparring_1":
@@ -1711,7 +1749,7 @@ func _title_menu_err(main: Node) -> String:
 		for nav_btn in [play, dex, options]:
 			var top: float = nav_btn.get_global_rect().position.y / view_h
 			if absf(top - band) > 0.04:
-				return "title buttons are not in the lower third"
+				return "title pills are not at the raised lock"
 		var logo := main.find_child("TitleWordmark", true, false) as Control
 		if logo != null and logo.size.y > 1.0:
 			var word_top := logo.get_global_rect().position.y / view_h
@@ -1776,8 +1814,58 @@ func _starter_pick_err(main: Node) -> String:
 			return "missing starter " + starter_id
 	if main.find_child("Starter_budmite", true, false) != null:
 		return "budmite still on the starter row"
-	if main.find_child("BackButton", true, false) == null:
-		return "starter pick back missing"
+	var prompt := main.find_child("StarterPrompt", true, false) as Label
+	if prompt == null or prompt.text != "Pick your starter":
+		return "starter header missing"
+	var sage: Color = prompt.get_theme_color("font_color")
+	if sage.g < sage.r or sage.g < 0.45:
+		return "starter header is not sage"
+	var confirm := main.find_child("ConfirmButton", true, false) as BaseButton
+	var back := main.find_child("BackButton", true, false) as BaseButton
+	if confirm == null or back == null:
+		return "starter pick actions missing"
+	if confirm.custom_minimum_size != Vector2(260, 48) or back.custom_minimum_size != Vector2(260, 48):
+		return "starter pills are not 260x48"
+	var view_h := prompt.get_viewport_rect().size.y
+	if view_h > 1.0 and prompt.size.y > 1.0:
+		var ui = load("res://scripts/main.gd")
+		var header_top: float = prompt.get_global_rect().position.y / view_h
+		if absf(header_top - float(ui.PICK_HEADER_ANCHOR)) > 0.04:
+			return "starter header is not near 10%"
+		for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
+			var card := main.find_child("Starter_%s" % starter_id, true, false) as Control
+			if card.size.y <= 1.0:
+				return "starter card has no size"
+			var mid: float = card.get_global_rect().get_center().y / view_h
+			if absf(mid - float(ui.PICK_CARD_ANCHOR)) > 0.04:
+				return "starter cards are not mid-screen"
+			var face := card.find_child("Capsule", true, false)
+			if face == null or face.get_script() == null:
+				return "starter portrait is not the idle sheet"
+			if str(face.get_script().resource_path) != "res://scripts/starter_face.gd":
+				return "starter portrait is not the idle sheet"
+			if (face as Control).scale != Vector2.ONE:
+				return "starter portrait scale is tweening"
+		var spark := main.find_child("Starter_sparkpup", true, false) as BaseButton
+		var sprout := main.find_child("Starter_sproutling", true, false) as BaseButton
+		if absf(spark.scale.x - float(ui.PICK_SELECTED_SCALE)) > 0.02:
+			return "sparkpup is not selected"
+		if absf(sprout.scale.x - 1.0) > 0.02:
+			return "unselected card is scaled"
+		var spark_box := spark.get_theme_stylebox("normal") as StyleBoxFlat
+		var sprout_box := sprout.get_theme_stylebox("normal") as StyleBoxFlat
+		if spark_box == null or spark_box.get_border_width(SIDE_LEFT) < 7:
+			return "selected card outline is thin"
+		if sprout_box == null or sprout_box.get_border_width(SIDE_LEFT) > 4:
+			return "idle card outline is thick"
+		if spark_box.shadow_size < 8:
+			return "selected card has no glow"
+		var action_top: float = confirm.get_global_rect().position.y / view_h
+		if absf(action_top - float(ui.PICK_ACTION_ANCHOR)) > 0.04:
+			return "starter pills are not near 74%"
+	var version := main.find_child("TitleVersion", true, false) as Label
+	if version == null or version.text != "v0.playtest-1":
+		return "version crumb missing"
 	return ""
 
 

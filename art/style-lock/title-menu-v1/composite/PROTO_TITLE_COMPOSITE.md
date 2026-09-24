@@ -2,7 +2,7 @@
 
 **Cut:** title / start menu polish — **Assets shortlist composite** (no gen, no Art muddy wash).  
 **Canvas:** 1280×800  
-**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), buttons in the lower third (~70% from top), big calm sky, layered world. Pack stack A is the default.
+**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), cream pills raised (~58% from top), big calm sky, layered world. Pack stack A is the default. James locked this layout.
 
 **Default background** = **pack stack** (`title-composite-pack-stack.png` + `layers/`).  
 Art-drawn Stardew meadow B (`../bg-title-texture-B-meadow-1280x800.png`) is **fallback only**.  
@@ -57,7 +57,7 @@ Source candidates (do not redistribute raw packs beyond project):
 |---------|-----------|
 | Logo | Centered, upper sky third (~7–12% from top). Calm sky behind. |
 | Negative space | Open sky between logo and buttons (mid band clear). |
-| Buttons | Lower third (~**70%** from top). Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Calm sky stays between the logo and the pills. |
+| Buttons | Raised (~**58%** from top). Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Calm sky stays between the logo and the pills. |
 | Version | Tiny bottom-right: `v0.playtest-1` |
 
 Button chrome (match mock): fill `#FAF6EE`, outline `#2C2A28` (~4px), label `#2C2A28`, ~300×54 pills, ~18px gap.
@@ -109,7 +109,7 @@ If chosen: wire as single TextureRect under chrome; skip `layers/` parallax. Sti
 ## 7) Checklist
 
 - [ ] Load `layers/sky → clouds → far → mid → near` (+ optional paper)
-- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills in the lower third (~70% from top)
+- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills raised (~58% from top)
 - [ ] Cloud drift 8–16px / 12–20s; button hover 1.03
 - [ ] Credit **edermunizz** (sky); list CC0 (VISTA, paper, heartpunch if used)
 - [ ] Art-drawn B meadow = fallback only

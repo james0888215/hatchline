@@ -14,9 +14,14 @@ const TITLE_COMPOSITE := TITLE_ART_DIR + "/composite"
 const TITLE_BG_CHOICE := "pack"
 const TITLE_LOGO_PX := 512
 const TITLE_LOGO_ANCHOR := 0.09
-const TITLE_NAV_ANCHOR := 0.70
+const TITLE_NAV_ANCHOR := 0.58
 const TITLE_HOVER_SCALE := 1.03
 const TITLE_HOVER_SEC := 0.15
+const PICK_HEADER_ANCHOR := 0.10
+const PICK_CARD_ANCHOR := 0.44
+const PICK_ACTION_ANCHOR := 0.74
+const PICK_SELECTED_SCALE := 1.045
+const PICK_HOVER_SEC := 0.11
 const TITLE_VERSION := "v0.playtest-1"
 const CLOUD_DRIFT_PX := 12.0
 const CLOUD_DRIFT_SEC := 16.0
@@ -61,6 +66,7 @@ var _rebuild_queued := false
 var dex_open := false
 var options_open := false
 var pick_open := false
+var pick_id := "sparkpup"
 var _ending := false
 var log_open := false
 var punch_uid := -1
@@ -385,32 +391,189 @@ func _build_title_menu(page: VBoxContainer) -> void:
 
 
 func _build_starter_pick(page: VBoxContainer) -> void:
-	var prompt := _centered_lbl("Choose a starter", 28, INK)
-	prompt.name = "StarterPrompt"
-	page.add_child(prompt)
-	var teach := _centered_lbl("Three of a kind evolve. Same-family neighbours share a bonus.", 16, INK)
-	teach.name = "StarterTeach"
-	page.add_child(teach)
-	var band = MEADOW.new()
-	band.name = "StarterMeadow"
-	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	band.custom_minimum_size = Vector2(0, 280)
-	page.add_child(band)
+	var margin := page.get_parent()
+	if margin is MarginContainer:
+		margin.add_theme_constant_override("margin_left", 0)
+		margin.add_theme_constant_override("margin_right", 0)
+		margin.add_theme_constant_override("margin_top", 0)
+		margin.add_theme_constant_override("margin_bottom", 0)
+	var stage := Control.new()
+	stage.name = "StarterChrome"
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(stage)
+	var wash := ColorRect.new()
+	wash.name = "StarterMeadow"
+	wash.color = Color(TITLE_CHARCOAL.r, TITLE_CHARCOAL.g, TITLE_CHARCOAL.b, 0.12)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wash.z_index = -2
+	wash.anchor_left = 0.0
+	wash.anchor_right = 1.0
+	wash.anchor_top = 0.30
+	wash.anchor_bottom = 0.58
+	stage.add_child(wash)
+	var header := _lbl("Pick your starter", 34, Color("5A8F6A"))
+	header.name = "StarterPrompt"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_color_override("font_outline_color", TITLE_CHARCOAL)
+	header.add_theme_constant_override("outline_size", 8)
+	_pin_band(header, PICK_HEADER_ANCHOR, 48.0)
+	stage.add_child(header)
 	var row := HBoxContainer.new()
 	row.name = "StarterRow"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 28)
-	row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	row.offset_left = 8
-	row.offset_right = -8
-	row.offset_top = -268
-	row.offset_bottom = -6
-	band.add_child(row)
-	_lift_over_wash(row)
+	row.add_theme_constant_override("separation", 36)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin_center(row, PICK_CARD_ANCHOR, 188.0)
+	stage.add_child(row)
 	for id in Game.starter_ids():
-		row.add_child(_starter_card(str(id)))
-	page.add_child(_center_row([_back_btn()], 0))
+		row.add_child(_pick_card(str(id)))
+	var back := _pick_pill("Back", "BackButton")
+	back.pressed.connect(_show_title_menu)
+	var confirm := _pick_pill("Confirm", "ConfirmButton")
+	confirm.pressed.connect(_confirm_pick)
+	var actions := _center_row([back, confirm], 28)
+	actions.name = "PickActions"
+	_pin_band(actions, PICK_ACTION_ANCHOR, 48.0)
+	stage.add_child(actions)
+	var version := _lbl(TITLE_VERSION, 12, Color(TITLE_CHARCOAL, 0.72))
+	version.name = "TitleVersion"
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.anchor_left = 1.0
+	version.anchor_right = 1.0
+	version.anchor_top = 1.0
+	version.anchor_bottom = 1.0
+	version.offset_left = -168.0
+	version.offset_right = -16.0
+	version.offset_top = -28.0
+	version.offset_bottom = -10.0
+	version.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	version.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	stage.add_child(version)
+
+
+func _pin_center(node: Control, anchor: float, height: float) -> void:
+	node.anchor_left = 0.0
+	node.anchor_right = 1.0
+	node.anchor_top = anchor
+	node.anchor_bottom = anchor
+	node.offset_left = 0.0
+	node.offset_right = 0.0
+	node.offset_top = -height * 0.5
+	node.offset_bottom = height * 0.5
+	node.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	node.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+func _pick_card(id: String) -> Control:
+	var c: Dictionary = Game.critters[id]
+	var selected := id == pick_id
+	# The row is a container, and containers reset child scale. The shell
+	# keeps the layout size; the button inside carries selection and hover.
+	var shell := Control.new()
+	shell.custom_minimum_size = Vector2(204, 176)
+	shell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	shell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if selected:
+		shell.z_index = 1
+	var b := Button.new()
+	b.name = "Starter_%s" % id
+	b.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.clip_text = false
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 1)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(state, Color(0, 0, 0, 0))
+	var box := _pick_card_style(7 if selected else 4, selected)
+	b.add_theme_stylebox_override("normal", box)
+	b.add_theme_stylebox_override("hover", box)
+	b.add_theme_stylebox_override("pressed", box)
+	b.add_theme_stylebox_override("focus", box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 12.0
+	col.offset_top = 8.0
+	col.offset_right = -12.0
+	col.offset_bottom = -8.0
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 2)
+	var hold := CenterContainer.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var token := TOKENS.present(str(c.family), int(c.tier), 140.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), "")
+	hold.add_child(token)
+	col.add_child(hold)
+	var name := _lbl(str(c.name), 18, TITLE_CHARCOAL)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(name)
+	var cue := _lbl(str(c.family).capitalize(), 13, Color(TITLE_CHARCOAL.r, TITLE_CHARCOAL.g, TITLE_CHARCOAL.b, 0.62))
+	cue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cue.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(cue)
+	b.add_child(col)
+	var base := PICK_SELECTED_SCALE if selected else 1.0
+	b.pivot_offset = shell.custom_minimum_size * 0.5
+	b.scale = Vector2(base, base)
+	b.resized.connect(func() -> void:
+		if b.size.x > 1.0:
+			b.pivot_offset = b.size * 0.5
+	)
+	b.pressed.connect(_select_pick.bind(id))
+	b.mouse_entered.connect(_pick_card_hover.bind(b, id, true))
+	b.mouse_exited.connect(_pick_card_hover.bind(b, id, false))
+	shell.add_child(b)
+	return shell
+
+
+func _pick_card_style(border: int, glow: bool) -> StyleBoxFlat:
+	var box := _style(TITLE_PILL, TITLE_CHARCOAL, border)
+	box.set_corner_radius_all(18)
+	box.set_content_margin_all(8)
+	if glow:
+		box.shadow_color = Color(0.98, 0.95, 0.88, 0.95)
+		box.shadow_size = 14
+		box.shadow_offset = Vector2.ZERO
+	return box
+
+
+func _pick_card_hover(b: Button, id: String, over: bool) -> void:
+	var target := PICK_SELECTED_SCALE if id == pick_id else (TITLE_HOVER_SCALE if over else 1.0)
+	_pick_hover(b, target)
+
+
+func _pick_hover(b: Button, target: float) -> void:
+	var sz := b.size
+	if sz.x < 1.0:
+		sz = b.custom_minimum_size
+	b.pivot_offset = sz * 0.5
+	if b.has_meta("hover_tw"):
+		var old = b.get_meta("hover_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(target, target), PICK_HOVER_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	b.set_meta("hover_tw", tw)
+
+
+func _pick_pill(text: String, node_name: String) -> Button:
+	var b := _title_pill(text, node_name, PICK_HOVER_SEC)
+	b.custom_minimum_size = Vector2(260, 48)
+	return b
+
+
+func _select_pick(id: String) -> void:
+	if id == pick_id:
+		return
+	pick_id = id
+	_queue_rebuild()
+
+
+func _confirm_pick() -> void:
+	Game.choose_starter(pick_id)
 
 
 func _build_dex_screen(page: VBoxContainer) -> void:
@@ -443,6 +606,7 @@ func _show_title_menu() -> void:
 
 
 func _open_starter_pick() -> void:
+	pick_id = "sparkpup"
 	pick_open = true
 	dex_open = false
 	options_open = false
@@ -621,7 +785,7 @@ func _dex_status() -> Label:
 	return line
 
 
-func _title_pill(text: String, node_name: String) -> Button:
+func _title_pill(text: String, node_name: String, hover_sec: float = TITLE_HOVER_SEC) -> Button:
 	var b := _btn(text, Vector2(300, 54))
 	b.name = node_name
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -637,7 +801,7 @@ func _title_pill(text: String, node_name: String) -> Button:
 	b.add_theme_stylebox_override("focus", normal)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(state, TITLE_CHARCOAL)
-	_arm_title_hover(b)
+	_arm_title_hover(b, hover_sec)
 	return b
 
 
@@ -679,16 +843,16 @@ func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
 	return b
 
 
-func _arm_title_hover(b: Button) -> void:
+func _arm_title_hover(b: Button, seconds: float = TITLE_HOVER_SEC) -> void:
 	b.mouse_entered.connect(func() -> void:
-		_title_hover(b, TITLE_HOVER_SCALE)
+		_title_hover(b, TITLE_HOVER_SCALE, seconds)
 	)
 	b.mouse_exited.connect(func() -> void:
-		_title_hover(b, 1.0)
+		_title_hover(b, 1.0, seconds)
 	)
 
 
-func _title_hover(b: Button, target: float) -> void:
+func _title_hover(b: Button, target: float, seconds: float = TITLE_HOVER_SEC) -> void:
 	var sz := b.size
 	if sz.x < 1.0:
 		sz = b.custom_minimum_size
@@ -698,7 +862,7 @@ func _title_hover(b: Button, target: float) -> void:
 		if old is Tween and (old as Tween).is_valid():
 			(old as Tween).kill()
 	var tw := b.create_tween()
-	tw.tween_property(b, "scale", Vector2(target, target), TITLE_HOVER_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(b, "scale", Vector2(target, target), seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	b.set_meta("hover_tw", tw)
 
 
@@ -771,52 +935,6 @@ func _centered_lbl(text: String, size: int, color: Color) -> Label:
 	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return lab
-
-
-func _starter_card(id: String) -> Button:
-	var c: Dictionary = Game.critters[id]
-	var b := Button.new()
-	b.name = "Starter_%s" % id
-	b.custom_minimum_size = Vector2(210, 0)
-	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var is_new: bool = str(c.line) in Game.profile.new_lines
-	b.text = ("NEW\n" if is_new else "") + str(c.name)
-	b.add_theme_font_size_override("font_size", 1)
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		b.add_theme_color_override(state, Color(0, 0, 0, 0))
-	var clear := _style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0)
-	var hover := _style(Color(1, 1, 1, 0.28), INK, 2)
-	b.add_theme_stylebox_override("normal", clear)
-	b.add_theme_stylebox_override("hover", hover)
-	b.add_theme_stylebox_override("pressed", hover)
-	b.add_theme_stylebox_override("focus", clear)
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_END
-	col.add_theme_constant_override("separation", 1)
-	var hold := CenterContainer.new()
-	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", "")))
-	hold.add_child(token)
-	col.add_child(hold)
-	if is_new:
-		var chip_row := CenterContainer.new()
-		chip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip_row.add_child(_chip("NEW", Color("f6d56b")))
-		col.add_child(chip_row)
-	var name := _lbl(str(c.name), 20, INK)
-	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(name)
-	var sub := _lbl("%s  ·  T%d" % [str(c.family).capitalize(), int(c.tier)], 13, MUTED)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(sub)
-	var stats := _lbl("%d HP    %d ATK" % [int(c.hp), int(c.atk)], 12, MUTED)
-	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(stats)
-	b.add_child(col)
-	b.pressed.connect(Game.choose_starter.bind(id))
-	return b
 
 
 func _dex_grid() -> GridContainer:

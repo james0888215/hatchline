@@ -10,7 +10,8 @@ Critters on the board, bench, shop, and combat grid are flat capsule tokens from
 - [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
 - [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp (starters-v1.1-subtle). The board uses the 64px static sheet; tight lists use 32. Idle is 6 frames at 5 FPS on one shared clock. Merge is a 6-frame one-shot at 9 FPS, then idle. Every other species stays a capsule.
 - [`art/style-lock/motion/MOTION_BRIEF_v1.md`](art/style-lock/motion/MOTION_BRIEF_v1.md) — playback lock for idle, merge, and title hover.
-- Title — `art/style-lock/title-menu-v1/composite/`. The default is the pack stack (sky, drifting clouds, far, mid, near, a light paper veil). The logo is `wordmark-hatchline-trio-512.png`, high in the sky, and it does not bob. Play, Hatch-dex, and Options are cream pills in the lower third, about 70% from the top. They grow to 1.03 on hover. Meadow texture B is the Art-meadow fallback. `title-composite-painted-alt.png` is the painted flip (`TITLE_BG_CHOICE := "painted"`).
+- Title — `art/style-lock/title-menu-v1/composite/`. The default is the pack stack (sky, drifting clouds, far, mid, near, a light paper veil). The logo is `wordmark-hatchline-trio-512.png`, high in the sky, and it does not bob. Play, Hatch-dex, and Options are cream pills raised to about 58% from the top. They grow to 1.03 on hover. Meadow texture B is the Art-meadow fallback. `title-composite-painted-alt.png` is the painted flip (`TITLE_BG_CHOICE := "painted"`).
+- Starter select — `art/style-lock/starter-select-v1/`. Play opens three cream cards on the same pack stack. Sparkpup starts selected. Confirm calls `choose_starter`; Back returns to the title. Portraits idle from the subtle 6-frame sheets.
 
 Sky art is edermunizz, [Simple Pastel Backgrounds](https://edermunizz.itch.io/free-simple-pastel-backgrounds) (attribution required). Hill layers are najjar320 VISTA (CC0). Clouds are GarzettDev. The paper veil is CC0. The painted alternate, if used, is heartpunch (CC0).
 
@@ -32,7 +33,7 @@ godot --headless --path . -s res://tests/logic_test.gd
 
 ## How to play
 
-1. The title menu is Play, Hatch-dex, and Options. Play opens the three tier-1 starters; Back returns to the title. The line under them is the whole tutorial: three of a kind evolve, and same-family neighbours help.
+1. The title menu is Play, Hatch-dex, and Options. Play opens the three tier-1 starters. Confirm starts the run; Back returns to the title. The line under them is the whole tutorial: three of a kind evolve, and same-family neighbours help.
 2. **Sparring** is the teaching fight. Press Fight and watch the two boards. A melee critter lunges. A ranged critter spits a seed. The target gives a small pop, and the number floats on the cell. A kill still pops. Speed toggles between ×1 and ×2. During the fight the combat log stays folded until you open it. After the fight the full log stays on screen in a scroller. A starter in the right column wins. A ranged critter standing in Front, or a melee critter stuck in Back, can lose.
 3. The **Meadow Stall** opens next. Buy, Freeze, Reroll, and sell. A copy of something you already own is in the first slot.
 4. Two copies do nothing. They show **2/3**. The third copy evolves on the spot — the cell pops, and a one-line banner names the new tier.
