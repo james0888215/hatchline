@@ -708,8 +708,9 @@ func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, 
 	rect.position.x = -drift_px
 	var tw := rect.create_tween()
 	tw.set_loops()
-	tw.tween_property(rect, "position:x", 0.0, drift_sec).set_trans(Tween.TRANS_LINEAR)
-	tw.tween_property(rect, "position:x", -drift_px, drift_sec).set_trans(Tween.TRANS_LINEAR)
+	# Ping-pong, not a wrap. Sine ease-in-out softens the reverse; px and time stay put.
+	tw.tween_property(rect, "position:x", 0.0, drift_sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(rect, "position:x", -drift_px, drift_sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	rect.set_meta("drift_tw", tw)
 	return clip
 
