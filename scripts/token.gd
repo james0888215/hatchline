@@ -2,8 +2,9 @@ extends RefCounted
 
 # Flat capsule tokens cut from the locked silhouette sheets.
 # One texture per family + tier. Named clarity crops override a shared face.
-# Sproutling, Sparkpup, and Cottonwisp use the soft-patched starters-v1
-# sheets instead: static 64 on the board, 32 on tight lists, plus idle.
+# Sproutling, Sparkpup, and Cottonwisp use starters-v1.3-anemononima:
+# 140-class (220×200 canvas) on pick and title, 64-class (96×80) on the board,
+# static 32 on tight lists. Idle is 8 frames; merge is 6. Nearest, no mipmaps.
 
 const STARTER_FACE := preload("res://scripts/starter_face.gd")
 
@@ -13,9 +14,12 @@ const STARTER_MARKS := {
 	"cottonwisp": true,
 }
 const STARTER_ROOT := "res://art/starters"
-# Dex chips pass 40. Board slots pass 46, combat and shop pass 64.
+# File suffix is the class, not the body height.
+# 140-class canvas is 220×200 (solid ~184). 64-class canvas is 96×80 (solid ~68).
+# Pick and title pass >= 96. Board passes 46–64. Dex chips pass 40 and stay on static 32.
+const STARTER_SHEET_140_MIN := 96.0
 const STARTER_SHEET_64_MIN := 44.0
-const STARTER_IDLE_FRAMES := 6
+const STARTER_IDLE_FRAMES := 8
 const STARTER_MERGE_FRAMES := 6
 
 static func texture(family: String, tier: int) -> Texture2D:
@@ -176,7 +180,11 @@ static func present(family: String, tier: int, max_h: float, boss: bool = false,
 	token.name = "Capsule"
 	var box := Control.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# Starter frames are a pixel pack. Capsules stay linear.
+	if is_starter_mark(mark):
+		box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	else:
+		box.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var sz := token.custom_minimum_size
 	box.custom_minimum_size = sz
 	box.size = sz
@@ -206,13 +214,13 @@ static func present(family: String, tier: int, max_h: float, boss: bool = false,
 static var _mips: Dictionary = {}
 
 
-static func _filtered(tex: Texture2D, w: int, h: int) -> Texture2D:
+static func _filtered(tex: Texture2D, w: int, h: int, nearest: bool = false) -> Texture2D:
 	if tex == null:
 		return null
 	var path := tex.resource_path
 	if path == "":
 		path = str(tex.get_rid())
-	var key := "%s@%dx%d" % [path, w, h]
+	var key := "%s@%dx%d:%s" % [path, w, h, "near" if nearest else "lin"]
 	if _mips.has(key):
 		return _mips[key]
 	var img := tex.get_image()
@@ -220,7 +228,12 @@ static func _filtered(tex: Texture2D, w: int, h: int) -> Texture2D:
 		return tex
 	img = img.duplicate()
 	if img.get_width() != w or img.get_height() != h:
-		img.resize(maxi(1, w), maxi(1, h), Image.INTERPOLATE_LANCZOS)
+		var mode := Image.INTERPOLATE_NEAREST if nearest else Image.INTERPOLATE_LANCZOS
+		img.resize(maxi(1, w), maxi(1, h), mode)
+	if nearest:
+		var crisp := ImageTexture.create_from_image(img)
+		_mips[key] = crisp
+		return crisp
 	if not img.has_mipmaps():
 		img.generate_mipmaps()
 	var out := ImageTexture.create_from_image(img)
@@ -297,9 +310,19 @@ static func is_starter_mark(mark: String) -> bool:
 
 
 static func starter_sheet_px(max_h: float) -> int:
+	if max_h >= STARTER_SHEET_140_MIN:
+		return 140
 	if max_h >= STARTER_SHEET_64_MIN:
 		return 64
 	return 32
+
+
+# Idle and merge ship at 140 and 64 only. Tight UI keeps the 32 static
+# and plays the 64-class frames scaled into that slot.
+static func _anim_px(px: int) -> int:
+	if px < 64:
+		return 64
+	return px
 
 
 static func sheet_frame(tex: Texture2D, w: int, h: int) -> Texture2D:
@@ -321,22 +344,25 @@ static func _load_png(path: String) -> Texture2D:
 
 
 static func _starter_pack(mark: String, px: int, w: int, h: int) -> Dictionary:
+	var anim_px := _anim_px(px)
 	var still := _load_png(_static_path(mark, px))
+	if still == null:
+		still = _load_png(_static_path(mark, anim_px))
 	if still == null:
 		return {}
 	var idle: Array = []
 	for i in STARTER_IDLE_FRAMES:
-		var frame := _load_png(_anim_path(mark, "idle", i, px))
+		var frame := _load_png(_anim_path(mark, "idle", i, anim_px))
 		if frame == null:
 			return {}
-		idle.append(_filtered(frame, w, h))
+		idle.append(_filtered(frame, w, h, true))
 	var merging: Array = []
 	for i in STARTER_MERGE_FRAMES:
-		var frame := _load_png(_anim_path(mark, "merge", i, px))
+		var frame := _load_png(_anim_path(mark, "merge", i, anim_px))
 		if frame == null:
 			return {}
-		merging.append(_filtered(frame, w, h))
-	return {"static": _filtered(still, w, h), "idle": idle, "merge": merging}
+		merging.append(_filtered(frame, w, h, true))
+	return {"static": _filtered(still, w, h, true), "idle": idle, "merge": merging}
 
 
 static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
@@ -344,7 +370,7 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# Resample to the drawn size, then keep mips for the fight squash and window scale.
+	# Capsules resample with mips. Starter frames stay nearest (set again once the face exists).
 	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var px := starter_sheet_px(max_h)
 	var tex: Texture2D = null
@@ -398,8 +424,9 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		face.call("setup", px, pack["static"], pack["idle"], pack["merge"])
+		# Full canvas, shadow included. Do not treat the class name as the body height.
 		face.pivot_offset = Vector2(w * 0.5, h)
 	elif tex != null:
 		rect.texture = _filtered(tex, int(w), int(h))

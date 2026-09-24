@@ -8,12 +8,16 @@ const MEADOW := preload("res://scripts/meadow_wash.gd")
 
 # Title chrome only. In-run wash stays meadow-wash-v2.
 # Default scenic title is the pack stack. Meadow B and the painted alt are swaps.
-# Logo stays the trio wordmark. James locked the first pill at 58% from the top.
+# Live Anêmonônima trio sits above a static type wordmark. James locked the first pill at 58% from the top.
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
 const TITLE_COMPOSITE := TITLE_ART_DIR + "/composite"
 const TITLE_BG_CHOICE := "pack"
 const TITLE_LOGO_PX := 512
 const TITLE_LOGO_ANCHOR := 0.09
+# Trio uses the 140-class frames (canvas 220×200). Drawn shorter than the pick cards.
+const TITLE_TRIO_MAX_H := 104.0
+const TITLE_WORD_MAX_H := 76.0
+const TITLE_CLUSTER_BAND := 236.0
 const TITLE_NAV_ANCHOR := 0.58
 # First pill top stays at TITLE_NAV_ANCHOR. The stack is 3×54 plus two 18px gaps.
 const TITLE_NAV_BAND := 198.0
@@ -358,7 +362,7 @@ func _build_title_menu(page: VBoxContainer) -> void:
 	cluster.add_theme_constant_override("separation", 4)
 	cluster.add_child(_title_mark())
 	cluster.add_child(_dex_status())
-	_pin_band(cluster, TITLE_LOGO_ANCHOR, 176.0)
+	_pin_band(cluster, TITLE_LOGO_ANCHOR, TITLE_CLUSTER_BAND)
 	stage.add_child(cluster)
 	var play := _title_pill("Play", "PlayButton")
 	play.pressed.connect(_open_starter_pick)
@@ -658,7 +662,7 @@ func _add_pack_stack() -> void:
 
 
 func _sky_credit() -> Label:
-	var credit := _lbl("Sky — edermunizz", 12, Color(TITLE_CHARCOAL, 0.62))
+	var credit := _lbl("Sky — edermunizz\nStarters — Anêmonônima (CC0)", 12, Color(TITLE_CHARCOAL, 0.62))
 	credit.name = "SkyCredit"
 	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	credit.anchor_left = 0.0
@@ -666,9 +670,9 @@ func _sky_credit() -> Label:
 	credit.anchor_top = 1.0
 	credit.anchor_bottom = 1.0
 	credit.offset_left = 16.0
-	credit.offset_right = 240.0
-	credit.offset_top = -28.0
-	credit.offset_bottom = -10.0
+	credit.offset_right = 420.0
+	credit.offset_top = -46.0
+	credit.offset_bottom = -8.0
 	credit.grow_horizontal = Control.GROW_DIRECTION_END
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	return credit
@@ -773,8 +777,23 @@ func _title_texture_path() -> String:
 	return TITLE_TEXTURE_B
 
 
-func _trio_logo_path() -> String:
-	return "%s/wordmark-hatchline-trio-%d.png" % [TITLE_ART_DIR, TITLE_LOGO_PX]
+func _type_logo_path() -> String:
+	# Type only. The baked trio PNG still has the old capsules, so the live faces sit above this.
+	return "%s/wordmark-hatchline-only-%d.png" % [TITLE_ART_DIR, TITLE_LOGO_PX]
+
+
+func _title_trio() -> Control:
+	var row := HBoxContainer.new()
+	row.name = "TitleTrio"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row.add_theme_constant_override("separation", 18)
+	for id in ["sproutling", "sparkpup", "cottonwisp"]:
+		var c: Dictionary = Game.critters[id]
+		var mark := TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))
+		row.add_child(TOKENS.present(str(c.family), int(c.tier), TITLE_TRIO_MAX_H, false, mark, ""))
+	return row
 
 
 func _title_plate(tex: Texture2D) -> Control:
@@ -802,8 +821,9 @@ func _title_mark() -> Control:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 4)
-	var logo := _title_tex(_trio_logo_path())
-	box.add_child(_title_rect("TitleWordmark", logo, "Trio above the Hatchline wordmark. Art overwrites this file in place."))
+	box.add_child(_title_trio())
+	var logo := _title_tex(_type_logo_path())
+	box.add_child(_title_rect("TitleWordmark", logo, "Static Hatchline wordmark under the live starter trio.", TITLE_WORD_MAX_H))
 	if logo == null:
 		var placeholder := _centered_lbl("HATCHLINE", 48, INK)
 		placeholder.name = "TitlePlaceholder"
@@ -820,7 +840,7 @@ func _title_tex(path: String) -> Texture2D:
 	return load(path) as Texture2D
 
 
-func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
+func _title_rect(node_name: String, tex: Texture2D, tip: String, max_h: float = 132.0) -> TextureRect:
 	var hook := TextureRect.new()
 	hook.name = node_name
 	hook.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -836,9 +856,9 @@ func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
 		return hook
 	var h := float(tex.get_height())
 	var w := float(tex.get_width())
-	if h > 132.0:
-		w = 132.0 * w / h
-		h = 132.0
+	if h > max_h:
+		w = max_h * w / h
+		h = max_h
 	hook.custom_minimum_size = Vector2(w, h)
 	return hook
 

@@ -71,7 +71,7 @@ If hills fight readability, lift cards into calm sky / upper mid — cream cards
 |------|--------|--------|
 | Cloud drift | **8–16 px** horizontal | **12–20 s** loop (same as title if scenic shared) |
 | Far hills | optional parallax | **≤ 4 px** over **20 s** |
-| **Selected starter idle** | subtle breathe **≤ ±4%** squash/stretch | from `starters-v1.2-face`; shared clock; pivot bottom-center (`motion/MOTION_BRIEF_v1.md`) |
+| **Selected starter idle** | pack frames, **no** scale tween | `starters-v1.3-anemononima` 140-class, 8 frames @ 4–5 FPS; shared clock; pivot bottom-center (`motion/MOTION_BRIEF_v1.md`) |
 | Unselected starters | static OK, or same idle quieter | keep one clock if both idle |
 | Hover card | scale **1.00 → 1.03** | soft ease ~100–120 ms |
 | Confirm hover | scale **1.03** | soft ease ~100–120 ms (title button language) |
@@ -90,6 +90,7 @@ Mock is **static**. Menu drift = same slow clouds as title. No bob on buttons. N
 | VISTA downs (najjar320) | **CC0** | Optional: najjar320 |
 | Garzett pixel clouds | Commercial free | Optional / appreciated: GarzettDev |
 | Paper albedo | **CC0** | — |
+| **Anêmonônima** Blob/Slime | **CC0** | Starters — Anêmonônima (courtesy) |
 
 Same stack as title — credit **edermunizz** if sky reused. CraftPix flowers **not** used under card band.
 
@@ -102,7 +103,7 @@ Same stack as title — credit **edermunizz** if sky reused. CraftPix flowers **
 - [ ] Three cream cards mid band ~32–55%; portraits from style-lock helpers
 - [ ] One selected state (thicker outline / glow / slight scale) — no noisy badge
 - [ ] Back + Confirm cream pills ~70–78% from top; `v0.playtest-1` BR
-- [ ] Selected idle ≤±4% from `starters-v1.2-face`; hover card 1.03; Confirm hover 1.03
+- [ ] Selected idle from `starters-v1.3-anemononima` (no scale tween); hover card 1.03; Confirm hover 1.03
 - [ ] No card-band charcoal wash; no grey/charcoal ColorRect grade under cards
 - [ ] Cloud drift same as title; credit **edermunizz**
 - [ ] No new creatures; no Hatch-dex; title layout stays locked
