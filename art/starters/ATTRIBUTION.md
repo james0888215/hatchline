@@ -9,8 +9,8 @@
 ## Hatchline Art — starter marks + charcoal outline
 - Kit: `art/style-lock/starter-marks/`
 - Assets: `mark-sproutling-leaf-*`, `mark-sparkpup-flame-*`, `mark-cottonwisp-clouds-*`
-- Outline: charcoal `#2C2A28`
-- Used for: family marks on TOP of regraded pack bodies; outline merge (no double-halo)
+- Outline / closed lids: charcoal `#2C2A28`
+- Used for: family marks on TOP of regraded pack bodies; outline merge (no double-halo); thick closed lids on idle 06 and 07 (`starters-v1.3.1-blink`)
 
 ## Not used
 - Fluffyblob / ToffeeCraft / Blueberry

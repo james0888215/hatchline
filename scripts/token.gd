@@ -2,9 +2,10 @@ extends RefCounted
 
 # Flat capsule tokens cut from the locked silhouette sheets.
 # One texture per family + tier. Named clarity crops override a shared face.
-# Sproutling, Sparkpup, and Cottonwisp use starters-v1.3-anemononima:
+# Sproutling, Sparkpup, and Cottonwisp idle is starters-v1.3.1-blink:
 # 140-class (220×200 canvas) on pick and title, 64-class (96×80) on the board,
-# static 32 on tight lists. Idle is 8 frames; merge is 6. Nearest, no mipmaps.
+# static 32 on tight lists. Idle is 8 frames: half-lid on 05, closed hold on
+# identical 06 and 07. Merge stays starters-v1.3 (6 frames). Nearest, no mipmaps.
 # Meadow enemies and Budmite use wild-cast-v1-anemononima on the same clock:
 # 64-class (96×88) on the board, 140-class (220×220) for the Budmite unlock
 # and shop portrait. Idle is 8 frames. No merge sheet, no telegraph.

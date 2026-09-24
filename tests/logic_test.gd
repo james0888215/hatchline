@@ -528,6 +528,9 @@ func _test_combat_floats() -> String:
 		return "merge settle out of band"
 	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 8 or int(cap.get("merge_count")) != 6:
 		return "sproutling board sheet"
+	var blink_err := _starter_blink_hold()
+	if blink_err != "":
+		return blink_err
 	if absf(cap.pivot_offset.x - cap.custom_minimum_size.x * 0.5) > 1.0 or absf(cap.pivot_offset.y - cap.custom_minimum_size.y) > 1.0:
 		return "starter pivot is not bottom-center"
 	var listed = tokens.make("ember", 1, 40.0, false, "sparkpup", "ranged")
@@ -1389,6 +1392,38 @@ func _test_unlock() -> String:
 	g._load_profile()
 	if "bud" not in g.profile.unlocked_lines:
 		return "unlock did not save"
+	return ""
+
+
+func _png_bytes(path: String) -> PackedByteArray:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return PackedByteArray()
+	return f.get_buffer(f.get_length())
+
+
+# v1.3.1-blink lock: half-lid on 05, identical closed hold on 06 and 07.
+# Merge files stay the archived v1.3 one-shot.
+func _starter_blink_hold() -> String:
+	for name in ["sproutling", "sparkpup", "cottonwisp"]:
+		for px in [64, 140]:
+			var open_b := _png_bytes("res://art/starters/idle/%s_idle_00_%d.png" % [name, px])
+			var half_b := _png_bytes("res://art/starters/idle/%s_idle_05_%d.png" % [name, px])
+			var closed_b := _png_bytes("res://art/starters/idle/%s_idle_06_%d.png" % [name, px])
+			var hold_b := _png_bytes("res://art/starters/idle/%s_idle_07_%d.png" % [name, px])
+			var old_b := _png_bytes("res://assets/drops/starters-v1.3-anemononima/idle/%s_idle_06_%d.png" % [name, px])
+			if open_b.is_empty() or half_b.is_empty() or closed_b.is_empty() or hold_b.is_empty() or old_b.is_empty():
+				return "blink frame missing %s %d" % [name, px]
+			if closed_b != hold_b:
+				return "%s %d closed hold is not identical 06+07" % [name, px]
+			if half_b == open_b or half_b == closed_b:
+				return "%s %d half-lid is not frame 05" % [name, px]
+			if closed_b == old_b:
+				return "%s %d idle is still the v1.3 blink" % [name, px]
+	var live_merge := _png_bytes("res://art/starters/merge/sproutling_merge_00_64.png")
+	var arch_merge := _png_bytes("res://assets/drops/starters-v1.3-anemononima/merge/sproutling_merge_00_64.png")
+	if live_merge.is_empty() or live_merge != arch_merge:
+		return "merge left v1.3"
 	return ""
 
 
