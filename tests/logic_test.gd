@@ -1905,12 +1905,18 @@ func _title_stage_err(main: Node) -> String:
 	var drift_sec := float(clouds.get_meta("drift_sec"))
 	if drift < 8.0 or drift > 16.0 or drift_sec < 12.0 or drift_sec > 20.0:
 		return "cloud drift is out of band"
+	if not bool(clouds.get_meta("drift_wrap")):
+		return "clouds should wrap-scroll"
+	if clouds.find_child("TitleCloudsArtB", true, false) == null:
+		return "clouds are missing the wrap copy"
 	for hill_name in ["TitleFar", "TitleMid", "TitleNear"]:
 		var hill := main.find_child(hill_name, true, false)
 		var hill_px := float(hill.get_meta("drift_px"))
 		var hill_sec := float(hill.get_meta("drift_sec"))
 		if hill_px < 0.0 or hill_px > 4.0 or hill_sec < 18.0 or hill_sec > 22.0:
 			return "%s drift is outside the hill clamp" % hill_name
+		if bool(hill.get_meta("drift_wrap")):
+			return "%s should stay ping-pong" % hill_name
 	var paper := main.find_child("TitlePaper", true, false) as CanvasItem
 	if paper.modulate.a < 0.08 or paper.modulate.a > 0.12:
 		return "paper softlight is not a light veil"
