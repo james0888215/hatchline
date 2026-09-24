@@ -499,22 +499,24 @@ func _test_combat_floats() -> String:
 	if cap.custom_minimum_size != cap.custom_minimum_size.round():
 		return "fight token is off a pixel"
 	var face_script = load("res://scripts/starter_face.gd")
-	if float(face_script.IDLE_FPS) < 6.0 or float(face_script.IDLE_FPS) > 8.0:
-		return "idle fps out of band"
+	if float(face_script.IDLE_FPS) != 8.0:
+		return "idle clock is not 8 fps"
 	var holds = face_script.IDLE_HOLD_STEPS
 	if holds.size() != 4:
 		return "idle hold is not the 4-frame sheet"
-	if float(holds[0]) <= float(holds[1]) or float(holds[3]) <= float(holds[1]):
-		return "idle does not hold the rest poses"
-	if float(holds[2]) <= float(holds[1]):
-		return "idle squash has no ease"
+	if float(holds[1]) < 2.0 or float(holds[2]) < 2.0:
+		return "idle extremes are not held"
 	var span := 0.0
 	for step in holds:
 		span += float(step)
-	if span <= 4.0:
-		return "idle cycle is still even timing"
-	if float(face_script.MERGE_FPS) < 10.0 or float(face_script.MERGE_FPS) > 12.0:
+	var cycle := span / float(face_script.IDLE_FPS)
+	var effective := float(holds.size()) / cycle
+	if effective < 4.0 or effective > 5.0:
+		return "idle is not 4-5 fps"
+	if float(face_script.MERGE_FPS) < 8.0 or float(face_script.MERGE_FPS) > 10.0:
 		return "merge fps out of band"
+	if float(face_script.MERGE_SETTLE) < 0.05 or float(face_script.MERGE_SETTLE) > 0.08:
+		return "merge settle out of band"
 	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 4 or int(cap.get("merge_count")) != 5:
 		return "sproutling board sheet"
 	var listed = tokens.make("ember", 1, 40.0, false, "sparkpup", "ranged")
@@ -1126,10 +1128,24 @@ func _test_starter_motion() -> String:
 	if str(board.get("mode")) != "idle" or board.texture == still:
 		board.queue_free()
 		return "idle did not leave the static frame"
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		return "idle stacked a scale tween"
+	var buddy = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
+	root.add_child(buddy)
 	await create_timer(0.7).timeout
 	if int(board.get("frame_i")) == 0:
 		board.queue_free()
+		buddy.queue_free()
 		return "idle hold never released the rest frame"
+	if int(board.get("frame_i")) != int(buddy.get("frame_i")):
+		board.queue_free()
+		buddy.queue_free()
+		return "starters do not share an idle clock"
+	if board.scale != Vector2.ONE or buddy.scale != Vector2.ONE:
+		board.queue_free()
+		buddy.queue_free()
+		return "idle stacked a scale tween"
 	var holder := Control.new()
 	root.add_child(holder)
 	var held = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
@@ -1144,14 +1160,28 @@ func _test_starter_motion() -> String:
 		tw.kill()
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		return "idle advanced during a tween"
 	tw.kill()
 	board.call("play_merge")
-	await create_timer(0.7).timeout
+	await create_timer(0.08).timeout
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		holder.queue_free()
+		buddy.queue_free()
+		return "merge stacked a scale tween"
+	board.call("play_merge")
+	await create_timer(0.85).timeout
 	if str(board.get("mode")) != "idle":
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		return "merge did not settle to idle"
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		holder.queue_free()
+		buddy.queue_free()
+		return "merge settle scaled the sheet"
 	var evolved = tokens.make("puff", 1, 64.0, false, "cottonwisp", "ranged")
 	root.add_child(evolved)
 	var cap_tex: Texture2D = tokens.clarity_texture("cloudbud")
@@ -1162,10 +1192,12 @@ func _test_starter_motion() -> String:
 	if str(evolved.get("mode")) != "still":
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		evolved.queue_free()
 		return "evolved merge did not settle to the capsule"
 	board.queue_free()
 	holder.queue_free()
+	buddy.queue_free()
 	evolved.queue_free()
 	return ""
 
@@ -1263,6 +1295,19 @@ func _test_ui() -> String:
 	var title_err := _title_menu_err(main)
 	if title_err != "":
 		return title_err
+	var hover_play := main.find_child("PlayButton", true, false) as BaseButton
+	hover_play.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if hover_play.scale.x < 1.02 or hover_play.scale.x > 1.04:
+		return "title hover is not a small scale"
+	var hovered := hover_play.scale.x
+	await create_timer(0.3).timeout
+	if absf(hover_play.scale.x - hovered) > 0.001:
+		return "title button bounces at rest"
+	hover_play.mouse_exited.emit()
+	await create_timer(0.2).timeout
+	if absf(hover_play.scale.x - 1.0) > 0.02:
+		return "title hover did not return"
 	var options: Node = main.find_child("OptionsButton", true, false)
 	options.pressed.emit()
 	await process_frame
@@ -1684,6 +1729,8 @@ func _title_menu_err(main: Node) -> String:
 		return "title logo is not the trio wordmark"
 	if "wordmark-hatchline-icon" in word_path or "wordmark-hatchline-only" in word_path:
 		return "archive wordmark is the default"
+	if word.scale != Vector2.ONE:
+		return "wordmark is moving"
 	var stage_err := _title_stage_err(main, "flourish-title-underlay")
 	if stage_err != "":
 		return stage_err

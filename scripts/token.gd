@@ -400,6 +400,7 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		face.call("setup", px, pack["static"], pack["idle"], pack["merge"])
+		face.pivot_offset = Vector2(w * 0.5, h)
 	elif tex != null:
 		rect.texture = _filtered(tex, int(w), int(h))
 	rect.custom_minimum_size = Vector2(w, h)

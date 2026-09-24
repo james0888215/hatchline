@@ -1,17 +1,24 @@
 extends TextureRect
 
 # Sproutling / Sparkpup / Cottonwisp only.
-# Idle loops while the token is sitting still. A combat squash or lunge
-# holds the current frame. A merge one-shot returns to idle, unless the
-# triple evolved into another species — that settles on the capsule.
+# Idle loops on one shared clock. A combat squash or lunge holds the
+# current frame. A merge one-shot returns to idle, unless the triple
+# evolved into another species — that settles on the capsule.
+# The 4-frame sheet is still the punchy starters-v1 export. Playback
+# slows it until Assets re-exports the ≤4% stretch. No scale tween
+# rides on top of those frames.
 
-const IDLE_FPS := 7.0
-const MERGE_FPS := 11.0
-# Steps of IDLE_FPS for the four idle frames: rest, stretch, squash, settle.
-# Even 7 FPS on that sheet strobes. Rest and settle dwell; stretch eases in
-# and the squash sits a little longer. Still four frames — in-betweens are
-# a Hatch Assets ask, not extra frames invented here.
-const IDLE_HOLD_STEPS: Array = [4.0, 2.0, 2.6, 3.2]
+const IDLE_FPS := 8.0
+const MERGE_FPS := 9.0
+const MERGE_SETTLE := 0.065
+# Steps of IDLE_FPS. Order is rest, stretch, squash, settle.
+# Extremes (stretch, squash) hold two ticks. Neutrals hold two as well,
+# so the loop eases instead of snapping. Eight FPS with those holds
+# shows the sheet at 4 FPS.
+const IDLE_HOLD_STEPS: Array = [2.0, 2.0, 2.0, 2.0]
+
+static var _clock: float = 0.0
+static var _clock_frame: int = -1
 
 var sheet_px: int = 64
 var mode: String = "idle"
@@ -23,7 +30,6 @@ var _idle: Array = []
 var _merge: Array = []
 var _settle: Texture2D = null
 var _accum: float = 0.0
-var _primed: bool = false
 
 
 func setup(px: int, static_tex: Texture2D, idle_frames: Array, merge_frames: Array) -> void:
@@ -35,8 +41,8 @@ func setup(px: int, static_tex: Texture2D, idle_frames: Array, merge_frames: Arr
 	mode = "idle"
 	frame_i = 0
 	_accum = 0.0
-	_primed = false
 	_settle = null
+	scale = Vector2.ONE
 	texture = static_tex
 
 
@@ -49,6 +55,7 @@ func arm_settle(tex: Texture2D) -> void:
 
 
 func play_merge() -> void:
+	scale = Vector2.ONE
 	if _merge.is_empty():
 		_finish_merge()
 		return
@@ -59,15 +66,23 @@ func play_merge() -> void:
 
 
 func _process(delta: float) -> void:
+	_advance_clock(delta)
 	if mode == "still":
 		return
 	if mode == "idle" and _mid_tween():
+		return
+	if mode == "settle":
+		_accum += delta
+		if _accum < MERGE_SETTLE:
+			return
+		mode = "idle"
+		_show_shared_idle()
 		return
 	var frames: Array = _merge if mode == "merge" else _idle
 	if frames.is_empty():
 		return
 	if mode == "idle":
-		_advance_idle(frames, delta)
+		_show_shared_idle()
 		return
 	if MERGE_FPS <= 0.0:
 		return
@@ -82,23 +97,35 @@ func _process(delta: float) -> void:
 		texture = frames[frame_i]
 
 
-func _advance_idle(frames: Array, delta: float) -> void:
-	if not _primed:
-		_primed = true
-		frame_i = 0
-		_accum = 0.0
-		texture = frames[0]
+func _advance_clock(delta: float) -> void:
+	var tick := Engine.get_process_frames()
+	if tick == _clock_frame:
 		return
-	_accum += delta
-	var guard := 0
-	while guard < frames.size():
-		var hold := _idle_hold(frame_i)
-		if hold <= 0.0 or _accum < hold:
-			return
-		_accum -= hold
-		frame_i = (frame_i + 1) % frames.size()
-		texture = frames[frame_i]
-		guard += 1
+	_clock_frame = tick
+	_clock += delta
+
+
+func _show_shared_idle() -> void:
+	if _idle.is_empty():
+		return
+	var count := _idle.size()
+	var total := 0.0
+	for i in count:
+		total += _idle_hold(i)
+	if total <= 0.0:
+		return
+	var t := fposmod(_clock, total)
+	var walked := 0.0
+	var index := 0
+	for i in count:
+		walked += _idle_hold(i)
+		if t < walked:
+			index = i
+			break
+		index = i
+	frame_i = index
+	texture = _idle[index]
+	scale = Vector2.ONE
 
 
 func _idle_hold(index: int) -> float:
@@ -111,12 +138,13 @@ func _idle_hold(index: int) -> float:
 func _finish_merge() -> void:
 	_accum = 0.0
 	frame_i = 0
+	scale = Vector2.ONE
 	if _settle != null:
 		texture = _settle
 		mode = "still"
 		return
-	mode = "idle"
-	_primed = true
+	# 65ms on the rest frame, then the shared idle clock. Interruptible.
+	mode = "settle"
 	if not _idle.is_empty():
 		texture = _idle[0]
 

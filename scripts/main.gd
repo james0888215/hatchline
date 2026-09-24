@@ -15,6 +15,8 @@ const TITLE_TEXTURE_CHOICE := "B"
 const TITLE_LOGO_PX := 512
 # Hills on texture B start about 44–48% down a 720px frame. The nav stays above that.
 const TITLE_NAV_CEILING := 0.42
+const TITLE_HOVER_SCALE := 1.03
+const TITLE_HOVER_SEC := 0.11
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
 const FLOURISH_TITLE := TITLE_ART_DIR + "/flourish-title-underlay-1280x800.png"
@@ -414,6 +416,8 @@ func _open_options() -> void:
 
 func _add_title_stage(for_pick: bool) -> void:
 	# texture underlay → flourish hills → logo and buttons (page z 0)
+	# One meadow plate plus one flourish. Cloud and hill drift waits until a
+	# scenic pack ships those as separate layers. The wordmark stays still.
 	var plate := _title_plate(_title_tex(_title_texture_path()))
 	plate.name = "TitleTexture"
 	plate.z_index = -6
@@ -524,7 +528,27 @@ func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
 		b.add_theme_stylebox_override("hover", hover)
 		b.add_theme_stylebox_override("pressed", pressed)
 		b.add_theme_stylebox_override("focus", normal)
+	b.mouse_entered.connect(func() -> void:
+		_title_hover(b, TITLE_HOVER_SCALE)
+	)
+	b.mouse_exited.connect(func() -> void:
+		_title_hover(b, 1.0)
+	)
 	return b
+
+
+func _title_hover(b: Button, target: float) -> void:
+	var sz := b.size
+	if sz.x < 1.0:
+		sz = b.custom_minimum_size
+	b.pivot_offset = sz * 0.5
+	if b.has_meta("hover_tw"):
+		var old = b.get_meta("hover_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(target, target), TITLE_HOVER_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	b.set_meta("hover_tw", tw)
 
 
 func _back_btn() -> Button:
@@ -2361,6 +2385,10 @@ func _arm_evolved_settle(token: Control, family: String, tier: int, species: Str
 func _play_merge_pop(node: Control) -> void:
 	var face := node.find_child("Capsule", true, false)
 	if face != null and face.has_method("has_merge") and bool(face.call("has_merge")):
+		# The sheet is the pop. A second scale tween on those frames is the jank.
+		node.scale = Vector2.ONE
+		if face is CanvasItem:
+			(face as CanvasItem).scale = Vector2.ONE
 		face.call("play_merge")
 		return
 	node.scale = Vector2(0.62, 0.62)
