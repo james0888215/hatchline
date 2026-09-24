@@ -30,6 +30,7 @@ func _main() -> void:
 		["boss_summons", _test_boss_summons],
 		["shop_teach_and_buy", _test_shop],
 		["stall_teach_triple", _test_stall_teach_triple],
+		["day1_triple_forced", _test_day1_triple_forced],
 		["melee_back_toast", _test_melee_back_toast],
 		["reroll_freeze_interest", _test_reroll_interest],
 		["freeze_survives_fight", _test_freeze_survives_fight],
@@ -776,6 +777,69 @@ func _test_stall_teach_triple() -> String:
 	return ""
 
 
+func _test_day1_triple_forced() -> String:
+	# The shop offer is not the guarantee. Skipping or rerolling still lands 3/3 before Grass.
+	# A sold starter is not resurrected. Budmite stays a loss unlock (see unlock_on_loss).
+	var known: Array = g.profile.discovered.duplicate()
+	for starter in ["sproutling", "sparkpup", "cottonwisp"]:
+		var evo := str(g.critters[starter].evolves_to)
+		g.blank_run()
+		_put("board", 4, starter)
+		g.run.starter_id = starter
+		g.run.coins = 99
+		g.enter_node("shop_a")
+		g.reroll()
+		g.leave_node()
+		if str(g.run.node_id) != "wild_1":
+			return "%s did not reach grass" % starter
+		if g.copy_count(evo) != 1 or g.copy_count(starter) != 0:
+			return "%s still short of a triple at grass" % starter
+		if str(g.run.toast) != g.STALL_TRIPLE_TOAST % str(g.critters[starter].name):
+			return "%s toast [" % starter + str(g.run.toast) + "]"
+		g.blank_run()
+		_put("board", 4, starter)
+		g.run.starter_id = starter
+		g.run.coins = 30
+		g.enter_node("shop_a")
+		g.buy(0)
+		g.buy(1)
+		if g.copy_count(evo) != 1 or g.copy_count(starter) != 0:
+			return "buy path did not triple " + starter
+		g.leave_node()
+		if g.copy_count(evo) != 1 or g.copy_count(starter) != 0:
+			return "leave granted an extra " + evo
+		if "Stall finished" in str(g.run.toast):
+			return "toast fired after the player already tripled"
+	g.blank_run()
+	_put("board", 4, "sproutling")
+	g.run.starter_id = "sproutling"
+	g.enter_node("shop_b")
+	g.leave_node()
+	if str(g.run.node_id) == "wild_1" or g.copy_count("thornbud") != 0 or g.copy_count("sproutling") != 1:
+		return "sunny cart forced a triple"
+	g.blank_run()
+	var sold: Dictionary = _put("board", 4, "sproutling")
+	g.run.starter_id = "sproutling"
+	g.enter_node("shop_a")
+	g.sell_uid(int(sold.uid))
+	g.leave_node()
+	if g.copy_count("sproutling") != 0 or g.copy_count("thornbud") != 0:
+		return "sold starter was forced back"
+	g.blank_run()
+	_put("board", 4, "sproutling")
+	_put("bench", 0, "sproutling")
+	g.run.starter_id = "sproutling"
+	g.enter_node("shop_a")
+	g.leave_node()
+	if g.copy_count("thornbud") != 1 or g.copy_count("sproutling") != 0:
+		return "a pair did not finish into one triple"
+	if int(g.profile.wins) != 0:
+		return "day-1 triple counted a win"
+	g.profile.discovered = known
+	g._save_profile()
+	return ""
+
+
 func _test_melee_back_toast() -> String:
 	if Game.MELEE_BACK_TOAST == "Melee in the back barely reached":
 		return "toast replaced the defeat line"
@@ -1206,6 +1270,8 @@ func _test_unlock() -> String:
 		return "reason has a break"
 	if "bud" not in g.profile.unlocked_lines:
 		return "line stayed locked"
+	if int(g.profile.wins) != 0:
+		return "loss unlock required a win"
 	if "Budmite" not in str(g.run.result.unlock):
 		return "unlock copy"
 	if "budmite" in g.starter_ids():

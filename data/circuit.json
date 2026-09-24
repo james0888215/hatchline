@@ -33,6 +33,7 @@
       "title": "Meadow Stall",
       "shop_tier": 1,
       "teach_copies": 2,
+      "force_starter_triple": true,
       "next": ["wild_1"]
     },
     {
@@ -59,6 +60,7 @@
       "title": "Sunny Cart",
       "shop_tier": 2,
       "teach_copies": 0,
+      "force_starter_triple": false,
       "next": ["event_1"]
     },
     {
@@ -95,6 +97,7 @@
       "title": "Last Stall",
       "shop_tier": 3,
       "teach_copies": 0,
+      "force_starter_triple": false,
       "leave_label": "Face the Matron",
       "next": ["boss"]
     },
