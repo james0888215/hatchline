@@ -4,8 +4,9 @@ extends TextureRect
 # Idle loops on one shared clock. A combat squash or lunge holds the
 # current frame. A merge one-shot returns to idle, unless the triple
 # evolved into another species — that settles on the capsule.
-# Starter frames are starters-v1.3-anemononima (8 idle, 6 merge).
-# Wild-cast frames are idle only (8). Files 00–07 already bake the pack order.
+# Starter idle is starters-v1.3.1-blink (8 frames). Merge stays v1.3 (6 frames).
+# Closed hold is frames 06 and 07, identical. Half-lid is frame 05.
+# Wild-cast frames are idle only (8). Playback is file order on one clock.
 # No scale tween rides on those frames. Merge returns to idle_00.
 
 const IDLE_FPS := 5.0
