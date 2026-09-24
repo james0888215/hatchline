@@ -2,6 +2,21 @@ extends RefCounted
 
 # Flat capsule tokens cut from the locked silhouette sheets.
 # One texture per family + tier. Named clarity crops override a shared face.
+# Sproutling, Sparkpup, and Cottonwisp use the soft-patched starters-v1
+# sheets instead: static 64 on the board, 32 on tight lists, plus idle.
+
+const STARTER_FACE := preload("res://scripts/starter_face.gd")
+
+const STARTER_MARKS := {
+	"sproutling": true,
+	"sparkpup": true,
+	"cottonwisp": true,
+}
+const STARTER_ROOT := "res://art/starters"
+# Dex chips pass 40. Board slots pass 46, combat and shop pass 64.
+const STARTER_SHEET_64_MIN := 44.0
+const STARTER_IDLE_FRAMES := 4
+const STARTER_MERGE_FRAMES := 5
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family
@@ -277,6 +292,53 @@ static func _body_corner(tex: Texture2D) -> Vector2:
 	return ratio
 
 
+static func is_starter_mark(mark: String) -> bool:
+	return STARTER_MARKS.has(mark)
+
+
+static func starter_sheet_px(max_h: float) -> int:
+	if max_h >= STARTER_SHEET_64_MIN:
+		return 64
+	return 32
+
+
+static func sheet_frame(tex: Texture2D, w: int, h: int) -> Texture2D:
+	return _filtered(tex, w, h)
+
+
+static func _static_path(mark: String, px: int) -> String:
+	return "%s/static/%s_%d.png" % [STARTER_ROOT, mark, px]
+
+
+static func _anim_path(mark: String, kind: String, index: int, px: int) -> String:
+	return "%s/%s/%s_%s_%02d_%d.png" % [STARTER_ROOT, kind, mark, kind, index, px]
+
+
+static func _load_png(path: String) -> Texture2D:
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+
+static func _starter_pack(mark: String, px: int, w: int, h: int) -> Dictionary:
+	var still := _load_png(_static_path(mark, px))
+	if still == null:
+		return {}
+	var idle: Array = []
+	for i in STARTER_IDLE_FRAMES:
+		var frame := _load_png(_anim_path(mark, "idle", i, px))
+		if frame == null:
+			return {}
+		idle.append(_filtered(frame, w, h))
+	var merging: Array = []
+	for i in STARTER_MERGE_FRAMES:
+		var frame := _load_png(_anim_path(mark, "merge", i, px))
+		if frame == null:
+			return {}
+		merging.append(_filtered(frame, w, h))
+	return {"static": _filtered(still, w, h), "idle": idle, "merge": merging}
+
+
 static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "", role: String = "") -> Control:
 	var rect := TextureRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -284,7 +346,12 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	# Resample to the drawn size, then keep mips for the fight squash and window scale.
 	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	var tex := clarity_texture(mark)
+	var px := starter_sheet_px(max_h)
+	var tex: Texture2D = null
+	if is_starter_mark(mark):
+		tex = _load_png(_static_path(mark, px))
+	if tex == null:
+		tex = clarity_texture(mark)
 	if tex == null:
 		tex = texture(family, tier)
 	var aspect := 1.35
@@ -321,7 +388,19 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 		w *= 1.12
 	w = maxf(1.0, roundf(w))
 	h = maxf(1.0, roundf(h))
-	if tex != null:
+	var pack := {}
+	if is_starter_mark(mark):
+		pack = _starter_pack(mark, px, int(w), int(h))
+	if not pack.is_empty():
+		rect.free()
+		var face: TextureRect = STARTER_FACE.new()
+		rect = face
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		face.call("setup", px, pack["static"], pack["idle"], pack["merge"])
+	elif tex != null:
 		rect.texture = _filtered(tex, int(w), int(h))
 	rect.custom_minimum_size = Vector2(w, h)
 	rect.size = Vector2(w, h)

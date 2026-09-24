@@ -1068,9 +1068,17 @@ func _make_slot(zone: String, index: int, unit, w: float, h: float, glow: Color 
 	var species := TOKENS.species_mark(str(unit.family), str(unit.get("line", "")), int(unit.tier))
 	var role := str(unit.get("role", "melee"))
 	slot.set("preview_role", role)
-	var token := TOKENS.present(str(unit.family), int(unit.tier), 52.0 if wide else 46.0, false, species, role)
+	var face_mark := species
+	var evolve_from := ""
+	if flashing and Game.run != null:
+		evolve_from = str(Game.run.merge_flash.get("from_id", ""))
+		if TOKENS.is_starter_mark(evolve_from):
+			face_mark = evolve_from
+	var token := TOKENS.present(str(unit.family), int(unit.tier), 52.0 if wide else 46.0, false, face_mark, role)
 	var pop := _pop_wrap(token)
 	if flashing:
+		if evolve_from != species and TOKENS.is_starter_mark(evolve_from):
+			_arm_evolved_settle(token, str(unit.family), int(unit.tier), species)
 		_play_merge_pop(pop)
 		_pulse_slot(slot)
 	var hp := int(unit.max_hp)
@@ -2056,7 +2064,24 @@ func _pop_wrap(token: Control) -> Control:
 	return pop
 
 
+func _arm_evolved_settle(token: Control, family: String, tier: int, species: String) -> void:
+	var face := token.find_child("Capsule", true, false)
+	if face == null or not face.has_method("arm_settle"):
+		return
+	var result := TOKENS.clarity_texture(species)
+	if result == null:
+		result = TOKENS.texture(family, tier)
+	if result == null:
+		return
+	var sz: Vector2 = (face as Control).custom_minimum_size
+	face.call("arm_settle", TOKENS.sheet_frame(result, int(sz.x), int(sz.y)))
+
+
 func _play_merge_pop(node: Control) -> void:
+	var face := node.find_child("Capsule", true, false)
+	if face != null and face.has_method("has_merge") and bool(face.call("has_merge")):
+		face.call("play_merge")
+		return
 	node.scale = Vector2(0.62, 0.62)
 	var tw := node.create_tween()
 	tw.tween_property(node, "scale", Vector2(1.28, 1.28), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

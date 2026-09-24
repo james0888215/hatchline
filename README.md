@@ -8,6 +8,7 @@ Critters on the board, bench, shop, and combat grid are flat capsule tokens from
 
 - [`art/style-lock/`](art/style-lock/) — locked reference: `STYLE_LOCK.md`, the mood board, Leaf / Ember / Puff silhouette sheets, and the combat mock.
 - [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
+- [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp only (soft-patched starters-v1). The board uses the 64px static sheet; tight lists use 32. They idle at 7 FPS and play a 5-frame merge one-shot when that line triples. Every other species stays a capsule.
 
 `tools/extract_tokens.py` recuts the tokens if the sheets change. Body, face, and the single family mark stay on the sheet; tier is size plus that one silhouette add.
 

@@ -439,6 +439,7 @@ func resolve_merges() -> Array:
 		var from_c: Dictionary = critters[str(last.from)]
 		run.merge_flash = {
 			"from": str(from_c.name),
+			"from_id": str(last.from),
 			"to": str(to_c.name),
 			"tier": int(to_c.tier),
 			"family": str(to_c.family),
