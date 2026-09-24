@@ -21,6 +21,8 @@
   "PUFF_BUDDY_REGEN": 2,
   "EVENT_COIN_GIFT": 4,
   "COMBAT_MAX_ROUNDS": 16,
+  "ROLE_OFF_RANK_NUM": 1,
+  "ROLE_OFF_RANK_DEN": 2,
   "ENEMY_X_OFFSET": 4,
   "SHOP_ODDS": {
     "1": {"1": 100, "2": 0, "3": 0},

@@ -523,6 +523,7 @@ func make_unit(def_id: String) -> Dictionary:
 		"splash": int(c.get("splash", 0)),
 		"burn_applied": int(c.get("burn", 0)),
 		"mend": str(c.get("mend", "")),
+		"role": str(c.get("role", "melee")),
 		"evolves_to": str(c.get("evolves_to", "")),
 		"blurb": str(c.get("blurb", "")),
 	}
