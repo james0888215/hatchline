@@ -14,6 +14,8 @@ const BAD := Color("a33b32")
 const SLOT_EMPTY := Color("efeae0")
 const HIT := Color("c4453a")
 const HEAL := Color("2a8a4a")
+const BEAT_HOLD := 0.48
+const BEAT_FADE := 0.2
 
 var host: Control
 var tick: Timer
@@ -24,6 +26,8 @@ var _ending := false
 var log_open := false
 var punch_uid := -1
 var focus_uid := -1
+var _seen_phase := ""
+var _beat: Control = null
 
 var ally_grid: GridContainer
 var enemy_grid: GridContainer
@@ -133,9 +137,87 @@ func _rebuild() -> void:
 		_hold_attention()
 	else:
 		flash_timer.stop()
+	var prev := _seen_phase
+	_seen_phase = Game.phase
+	var beat := _beat_for(prev, Game.phase)
+	if beat != "":
+		_show_beat(beat)
+	elif _beat == null:
+		_maybe_start_tick()
+
+
+func _beat_for(prev: String, now: String) -> String:
+	if prev == "" or prev == now or Game.run == null:
+		return ""
+	if prev == "start" and now == "prep":
+		return str(Game.current_node().title)
+	if prev == "prep" and now == "combat":
+		return "Fight"
+	if prev == "combat":
+		var arrival := str(Game.run.get("arrival", ""))
+		Game.run.arrival = ""
+		if arrival != "":
+			return arrival
+		if now == "result":
+			return "Meadow clear" if bool(Game.run.result.get("won", false)) else "Run over"
+		return str(Game.current_node().title)
+	return ""
+
+
+func _show_beat(text: String) -> void:
+	if tick:
+		tick.stop()
+	if _beat != null and is_instance_valid(_beat):
+		_beat.queue_free()
+	var veil := Control.new()
+	veil.name = "ArrivalBeat"
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	veil.z_index = 90
+	var dim := ColorRect.new()
+	dim.color = Color(CREAM.r, CREAM.g, CREAM.b, 0.92)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := _style(Color("fffdf8"), INK, 3)
+	style.set_content_margin_all(22)
+	card.add_theme_stylebox_override("panel", style)
+	var lab := _lbl(text, 28, INK)
+	lab.name = "ArrivalText"
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card.add_child(lab)
+	center.add_child(card)
+	veil.add_child(center)
+	add_child(veil)
+	_beat = veil
+	var tw := veil.create_tween()
+	tw.tween_interval(BEAT_HOLD)
+	tw.tween_property(veil, "modulate:a", 0.0, BEAT_FADE)
+	tw.finished.connect(func() -> void:
+		var current := _beat == veil
+		if current:
+			_beat = null
+		if is_instance_valid(veil):
+			veil.queue_free()
+		if current:
+			_maybe_start_tick()
+	)
+
+
+func _maybe_start_tick() -> void:
+	if _beat != null and is_instance_valid(_beat):
+		return
+	if tick == null:
+		return
 	if Game.phase == "combat" and Game.combat != null and not Game.combat.over:
 		tick.wait_time = 0.72 / float(maxi(1, Game.speed))
-		tick.start()
+		if tick.is_stopped():
+			tick.start()
 
 
 func _clear_host() -> void:

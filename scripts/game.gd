@@ -475,6 +475,7 @@ func finish_combat() -> void:
 		return
 	_combat_done = true
 	if not combat.player_won:
+		run.arrival = "Run over"
 		_end_run(false, combat.defeat_reason())
 		return
 	var node := current_node()
@@ -483,9 +484,11 @@ func finish_combat() -> void:
 	var title := str(node.title)
 	if str(node.type) == "boss":
 		run.toast = "%s clear" % title
+		run.arrival = "Meadow clear"
 		_end_run(true, "The Matron curtseys. Your menagerie holds.")
 		return
 	var saved := "%s clear  +%d coins" % [title, reward]
+	run.arrival = saved
 	var nxt: Array = node.get("next", [])
 	if nxt.is_empty():
 		run.toast = saved

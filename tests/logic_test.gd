@@ -865,6 +865,9 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "sparring_1":
 		return "pick did not start sparring"
+	var land: Node = main.find_child("ArrivalText", true, false)
+	if land == null or "Sparring" not in str(land.text):
+		return "starter transition beat missing"
 	var center = main.find_child("Board4", true, false)
 	if center == null or int(center.get("unit_uid")) < 0:
 		return "starter not on the board slot"
@@ -906,6 +909,11 @@ func _test_ui() -> String:
 	await process_frame
 	if g.phase != "combat":
 		return "fight did not start"
+	var fight_beat: Node = main.find_child("ArrivalText", true, false)
+	if fight_beat == null or str(fight_beat.text) != "Fight":
+		return "fight transition beat missing"
+	if main.tick and not main.tick.is_stopped():
+		return "fight ticked under the beat"
 	var speed: Node = main.find_child("SpeedButton", true, false)
 	if speed == null:
 		return "no speed toggle"
@@ -931,6 +939,9 @@ func _test_ui() -> String:
 	await process_frame
 	if str(g.run.node_id) != "shop_a":
 		return "shop did not open"
+	var reward_beat: Node = main.find_child("ArrivalText", true, false)
+	if reward_beat == null or "clear" not in str(reward_beat.text):
+		return "reward beat missing"
 	var reroll: Node = main.find_child("RerollButton", true, false)
 	var buy: Node = main.find_child("BuyButton0", true, false)
 	if reroll == null or buy == null:
