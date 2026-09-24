@@ -1,9 +1,10 @@
 {
   "defs": {
-    "mite": {"name": "Meadow Mite", "family": "beast", "hp": 14, "atk": 3, "armor": 0, "regen": 0, "role": "melee"},
-    "mite_small": {"name": "Tired Mite", "family": "beast", "hp": 10, "atk": 2, "armor": 0, "regen": 0, "role": "melee"},
+    "mite": {"name": "Meadow Mite", "family": "beast", "hp": 18, "atk": 5, "armor": 0, "regen": 0, "role": "melee"},
+    "mite_small": {"name": "Tired Mite", "family": "beast", "hp": 10, "atk": 5, "armor": 0, "regen": 0, "role": "ranged"},
     "barkling": {"name": "Barkling", "family": "leaf", "hp": 26, "atk": 5, "armor": 0, "regen": 0, "role": "melee"},
-    "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0, "role": "melee"},
+    "pollen": {"name": "Pollen Wisp", "family": "beast", "hp": 14, "atk": 5, "armor": 0, "regen": 0, "role": "ranged"},
+    "warden": {"name": "Nest Warden", "family": "beast", "hp": 72, "atk": 8, "armor": 2, "regen": 0, "role": "ranged"},
     "bramble": {"name": "Bramble Bit", "family": "beast", "hp": 20, "atk": 6, "armor": 1, "regen": 0, "role": "melee"},
     "matron": {"name": "Meadow Matron", "family": "leaf", "hp": 120, "atk": 8, "armor": 2, "regen": 1, "boss": true, "role": "ranged"},
     "sprig": {"name": "Sprig Add", "family": "beast", "hp": 16, "atk": 5, "armor": 0, "regen": 0, "role": "melee"}
@@ -11,38 +12,39 @@
   "encounters": {
     "sparring_pups": {
       "title": "Sparring",
-      "trait": "Tired pups — they barely nip.",
+      "trait": "The front mite nips. The tired one spits from the back.",
       "units": [
-        {"def": "mite", "x": 0, "y": 0},
-        {"def": "mite_small", "x": 0, "y": 2}
+        {"def": "mite", "x": 0, "y": 2, "tune": "SPARRING_MELEE"},
+        {"def": "mite_small", "x": 2, "y": 0, "tune": "SPARRING_RANGED"}
       ]
     },
     "wild_grass": {
       "title": "Wild Grass",
-      "trait": "Barkhide — adjacent Leaf share armour. The middle is thickest.",
+      "trait": "Barkhide — adjacent Leaf share armour. Pollen spits from the back.",
       "units": [
-        {"def": "barkling", "x": 0, "y": 0},
-        {"def": "barkling", "x": 0, "y": 1},
-        {"def": "barkling", "x": 0, "y": 2}
+        {"def": "barkling", "x": 0, "y": 0, "tune": "WILD_MELEE"},
+        {"def": "barkling", "x": 0, "y": 1, "tune": "WILD_MELEE"},
+        {"def": "barkling", "x": 0, "y": 2, "tune": "WILD_MELEE"},
+        {"def": "pollen", "x": 2, "y": 1, "tune": "WILD_RANGED"}
       ]
     },
     "elite_nest": {
       "title": "Elite Nest",
-      "trait": "The warden hits harder. The purse is fatter.",
+      "trait": "Barklings hold the front. The warden spits from the back.",
       "units": [
         {"def": "barkling", "x": 0, "y": 0},
-        {"def": "warden", "x": 1, "y": 1},
-        {"def": "barkling", "x": 0, "y": 2}
+        {"def": "barkling", "x": 0, "y": 2},
+        {"def": "warden", "x": 2, "y": 1}
       ]
     },
     "bramble_patch": {
       "title": "Bramble Patch",
-      "trait": "A nippy pack. Buddy armour blunts the chip.",
+      "trait": "Front brambles nip. One spits from the back.",
       "units": [
         {"def": "bramble", "x": 0, "y": 0},
         {"def": "bramble", "x": 0, "y": 1},
-        {"def": "bramble", "x": 1, "y": 1},
-        {"def": "bramble", "x": 0, "y": 2}
+        {"def": "bramble", "x": 0, "y": 2},
+        {"def": "bramble", "x": 2, "y": 1, "role": "ranged"}
       ]
     },
     "meadow_matron": {

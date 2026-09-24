@@ -39,6 +39,9 @@ func _main() -> void:
 		["defeat_line", _test_defeat_line],
 		["roles", _test_roles],
 		["sheet_art", _test_sheet_art],
+		["role_strikes", _test_role_strikes],
+		["early_teeth", _test_early_teeth],
+		["enemy_aim", _test_enemy_aim],
 		["unlock_on_loss", _test_unlock],
 	]
 	for item in tests:
@@ -109,6 +112,10 @@ func _test_economy() -> String:
 		"EMBER_BUDDY_DAMAGE", "PUFF_BUDDY_REGEN", "EVENT_COIN_GIFT",
 		"COMBAT_MAX_ROUNDS", "ENEMY_X_OFFSET",
 		"ROLE_OFF_RANK_NUM", "ROLE_OFF_RANK_DEN",
+		"SPARRING_MELEE_HP", "SPARRING_MELEE_ATK",
+		"SPARRING_RANGED_HP", "SPARRING_RANGED_ATK",
+		"WILD_MELEE_HP", "WILD_MELEE_ATK",
+		"WILD_RANGED_HP", "WILD_RANGED_ATK",
 	]
 	for k in keys:
 		if not g.economy.has(k):
@@ -276,16 +283,26 @@ func _test_wild_buddy() -> String:
 	scout.pos = Vector2i(1, 1)
 	var sim = CombatSim.new()
 	sim.setup([scout], g.encounters["wild_grass"], g.enemy_defs, g.economy)
-	if sim.enemies.size() != 3:
-		return "wild count"
+	if sim.enemies.size() != 4:
+		return "wild count %d" % sim.enemies.size()
 	var linked = 0
 	for e in sim.enemies:
+		if str(e.def_id) != "barkling":
+			if int(e.bonus_armor) != 0:
+				return "spitter took bark armour"
+			if str(e.role) != "ranged" or int(e.local_x) != 2:
+				return "pollen should spit from the back"
+			if int(e.hp) != g.econ("WILD_RANGED_HP") or int(e.atk) != g.econ("WILD_RANGED_ATK"):
+				return "pollen constants"
+			continue
 		var expect = g.econ("LEAF_BUDDY_ARMOR") * (2 if int(e.local_y) == 1 else 1)
 		if int(e.bonus_armor) != expect:
 			return "barkling armour %d != %d" % [int(e.bonus_armor), expect]
+		if int(e.atk) != g.econ("WILD_MELEE_ATK") or int(e.max_hp) != g.econ("WILD_MELEE_HP"):
+			return "bark constants"
 		linked += 1
-	if linked < 3:
-		return "not all buddied"
+	if linked != 3:
+		return "bark count %d" % linked
 	var blob = "\n".join(PackedStringArray(sim.log_lines))
 	if "Buddy:" not in blob:
 		return "buddy log missing"
@@ -827,6 +844,142 @@ func _test_roles() -> String:
 		guard += 1
 	if loss.player_won or loss.defeat_reason() != "Ranged in front melted":
 		return "front ranged reason [" + loss.defeat_reason() + "]"
+	return ""
+
+
+func _test_role_strikes() -> String:
+	var sim := CombatSim.new()
+	var post := {
+		"uid": 1, "name": "Post", "family": "leaf", "hp": 80, "max_hp": 80,
+		"atk": 0, "armor": 0, "role": "melee", "pos": Vector2i(1, 1),
+	}
+	sim.setup([post], g.encounters["sparring_pups"], g.enemy_defs, g.economy)
+	var melee_uid := -1
+	var ranged_uid := -1
+	for e in sim.enemies:
+		if str(e.role) == "melee":
+			melee_uid = int(e.uid)
+			if int(e.local_x) != 0 or int(e.max_hp) != g.econ("SPARRING_MELEE_HP") or int(e.atk) != g.econ("SPARRING_MELEE_ATK"):
+				return "sparring melee constants"
+		elif str(e.role) == "ranged":
+			ranged_uid = int(e.uid)
+			if int(e.local_x) != 2 or int(e.max_hp) != g.econ("SPARRING_RANGED_HP") or int(e.atk) != g.econ("SPARRING_RANGED_ATK"):
+				return "sparring ranged constants"
+	if melee_uid < 0 or ranged_uid < 0:
+		return "sparring needs both roles"
+	sim.step()
+	var melee_wind := false
+	var ranged_wind := false
+	var melee_hit := false
+	var ranged_hit := false
+	for entry in sim.cues:
+		if str(entry.kind) == "windup" and int(entry.uid) == melee_uid and int(entry.get("target", -1)) == 1 and str(entry.role) == "melee":
+			melee_wind = true
+		if str(entry.kind) == "windup" and int(entry.uid) == ranged_uid and int(entry.get("target", -1)) == 1 and str(entry.role) == "ranged":
+			ranged_wind = true
+		if str(entry.kind) == "hit" and int(entry.uid) == 1 and str(entry.get("via", "")) == "melee":
+			melee_hit = true
+		if str(entry.kind) == "hit" and int(entry.uid) == 1 and str(entry.get("via", "")) == "ranged":
+			ranged_hit = true
+	if not melee_wind or not ranged_wind:
+		return "role windups missing " + str(sim.cues)
+	if not melee_hit or not ranged_hit:
+		return "impact via missing " + str(sim.cues)
+	return ""
+
+
+func _test_early_teeth() -> String:
+	var err := _fight([_fighter("cottonwisp", 2, 1)], "sparring_pups", false, "front cotton")
+	if err != "":
+		return err
+	err = _fight([_fighter("sparkpup", 2, 1)], "sparring_pups", false, "front spark")
+	if err != "":
+		return err
+	err = _fight([_fighter("sproutling", 0, 1)], "sparring_pups", false, "back sprout")
+	if err != "":
+		return err
+	err = _fight([_fighter("sparkpup", 1, 1)], "sparring_pups", true, "spark mid")
+	if err != "":
+		return err
+	err = _fight([_fighter("cottonwisp", 1, 1)], "sparring_pups", true, "cotton mid")
+	if err != "":
+		return err
+	err = _fight([_fighter("sproutling", 1, 1)], "wild_grass", false, "lone sprout wild")
+	if err != "":
+		return err
+	var mix: Array = [_fighter("sproutling", 1, 1), _fighter("sparkpup", 0, 1)]
+	err = _fight(mix, "wild_grass", false, "no buddy wild")
+	if err != "":
+		return err
+	var pair: Array = [_fighter("sproutling", 1, 1), _fighter("sproutling", 1, 0)]
+	err = _fight(pair, "wild_grass", true, "buddy pair wild")
+	if err != "":
+		return err
+	return ""
+
+
+func _test_enemy_aim() -> String:
+	var defs := {
+		"nip": {"name": "Nip", "family": "beast", "hp": 40, "atk": 6, "armor": 0, "role": "melee"},
+		"spit": {"name": "Spit", "family": "beast", "hp": 40, "atk": 6, "armor": 0, "role": "ranged"},
+	}
+	var sim := CombatSim.new()
+	sim.setup([
+		{"uid": 1, "name": "FrontTop", "family": "leaf", "hp": 80, "max_hp": 80, "atk": 0, "armor": 0, "role": "melee", "pos": Vector2i(2, 0)},
+		{"uid": 2, "name": "BackBot", "family": "puff", "hp": 10, "max_hp": 10, "atk": 0, "armor": 0, "role": "ranged", "pos": Vector2i(0, 2)},
+	], {"units": [
+		{"def": "nip", "x": 0, "y": 2},
+		{"def": "spit", "x": 2, "y": 0},
+	]}, defs, g.economy)
+	sim.step()
+	var front_hp := -1
+	var back_hp := -1
+	for u in sim.allies:
+		if str(u.name) == "FrontTop":
+			front_hp = int(u.hp)
+		if str(u.name) == "BackBot":
+			back_hp = int(u.hp)
+	if front_hp >= 80:
+		return "melee left the front column"
+	if back_hp >= 10:
+		return "ranged left the low hp target"
+	if front_hp != 80 - 6:
+		return "melee also hit the back row (%d)" % front_hp
+	if back_hp != 10 - 6:
+		return "ranged also hit the front (%d)" % back_hp
+	var elite := CombatSim.new()
+	elite.setup([_fighter("sproutling", 1, 1)], g.encounters["elite_nest"], g.enemy_defs, g.economy)
+	var warden_back := false
+	for e in elite.enemies:
+		if str(e.def_id) == "warden":
+			warden_back = str(e.role) == "ranged" and int(e.local_x) == 2
+	if not warden_back:
+		return "warden should spit from the back"
+	var bramble := CombatSim.new()
+	bramble.setup([_fighter("sproutling", 1, 1)], g.encounters["bramble_patch"], g.enemy_defs, g.economy)
+	var back_spit := 0
+	var front_melee := 0
+	for e in bramble.enemies:
+		if str(e.role) == "ranged" and int(e.local_x) == 2:
+			back_spit += 1
+		if str(e.role) == "melee" and int(e.local_x) == 0:
+			front_melee += 1
+	if back_spit != 1 or front_melee != 3:
+		return "bramble ranks %d spit %d front" % [back_spit, front_melee]
+	var half := CombatSim.new()
+	half.setup([
+		{"uid": 1, "name": "Post", "family": "leaf", "hp": 80, "max_hp": 80, "atk": 0, "armor": 0, "role": "melee", "pos": Vector2i(1, 1)},
+	], {"units": [{"def": "nip", "x": 2, "y": 1}]}, defs, g.economy)
+	half.step()
+	var back_hit := 80 - int(half.allies[0].hp)
+	var full := CombatSim.new()
+	full.setup([
+		{"uid": 1, "name": "Post", "family": "leaf", "hp": 80, "max_hp": 80, "atk": 0, "armor": 0, "role": "melee", "pos": Vector2i(1, 1)},
+	], {"units": [{"def": "nip", "x": 0, "y": 1}]}, defs, g.economy)
+	full.step()
+	var front_hit := 80 - int(full.allies[0].hp)
+	if back_hit >= front_hit:
+		return "enemy melee in the back hit %d, front hit %d" % [back_hit, front_hit]
 	return ""
 
 

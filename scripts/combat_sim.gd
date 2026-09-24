@@ -105,7 +105,7 @@ func setup(player_units: Array, encounter: Dictionary, defs: Dictionary, econ: D
 		allies.append(u)
 		next_uid = maxi(next_uid, int(u.uid) + 1)
 	for spec in encounter.get("units", []):
-		var u := _make_enemy(str(spec.def), int(spec.x), int(spec.y), offset)
+		var u := _make_enemy(str(spec.def), int(spec.x), int(spec.y), offset, spec)
 		enemies.append(u)
 		if bool(u.boss):
 			stats.boss = true
@@ -219,26 +219,39 @@ func _fill_unit(src: Dictionary) -> Dictionary:
 	return u
 
 
-func _make_enemy(def_id: String, local_x: int, local_y: int, offset: int = -1) -> Dictionary:
+func _make_enemy(def_id: String, local_x: int, local_y: int, offset: int = -1, spec: Dictionary = {}) -> Dictionary:
 	if offset < 0:
 		offset = int(economy["ENEMY_X_OFFSET"])
 	var d: Dictionary = enemy_defs[def_id]
 	next_uid += 1
+	var hp := int(d.hp)
+	var atk := int(d.atk)
+	var tune := str(spec.get("tune", ""))
+	if tune != "":
+		var hp_key := tune + "_HP"
+		var atk_key := tune + "_ATK"
+		if economy.has(hp_key):
+			hp = int(economy[hp_key])
+		if economy.has(atk_key):
+			atk = int(economy[atk_key])
+	var role_src := d
+	if str(spec.get("role", "")) != "":
+		role_src = {"role": str(spec.role)}
 	return {
 		"uid": next_uid,
 		"def_id": def_id,
 		"name": str(d.name),
 		"family": str(d.family),
-		"hp": int(d.hp),
-		"max_hp": int(d.hp),
-		"atk": int(d.atk),
+		"hp": hp,
+		"max_hp": hp,
+		"atk": atk,
 		"armor": int(d.get("armor", 0)),
 		"regen": int(d.get("regen", 0)),
 		"thorns": int(d.get("thorns", 0)),
 		"splash": int(d.get("splash", 0)),
 		"burn_applied": int(d.get("burn", 0)),
 		"mend": str(d.get("mend", "")),
-		"role": _role_name(d),
+		"role": _role_name(role_src),
 		"boss": bool(d.get("boss", false)),
 		"side": "enemy",
 		"alive": true,
@@ -306,14 +319,21 @@ func _actors() -> Array:
 	for u in enemies:
 		if bool(u.alive):
 			list.append(u)
+	# Front column first, then melee before ranged. Not a top-to-bottom walk.
 	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var asid := 0 if str(a.side) == "ally" else 1
 		var bsid := 0 if str(b.side) == "ally" else 1
 		if asid != bsid:
 			return asid < bsid
-		if int(a.pos.y) != int(b.pos.y):
-			return int(a.pos.y) < int(b.pos.y)
-		return int(a.pos.x) < int(b.pos.x)
+		var ad := _rank_depth(a)
+		var bd := _rank_depth(b)
+		if ad != bd:
+			return ad > bd
+		var ar := 0 if _role(a) == "melee" else 1
+		var br := 0 if _role(b) == "melee" else 1
+		if ar != br:
+			return ar < br
+		return int(a.uid) < int(b.uid)
 	)
 	return list
 
@@ -323,9 +343,15 @@ func _attack(actor: Dictionary) -> void:
 	var target: Variant = _pick_target(actor, foes)
 	if target == null:
 		return
-	cues.append({"uid": int(actor.uid), "kind": "windup"})
+	var role := _role(actor)
+	cues.append({
+		"uid": int(actor.uid),
+		"kind": "windup",
+		"role": role,
+		"target": int(target.uid),
+	})
 	var dmg := maxi(1, _scaled_atk(actor) - _total_arm(target))
-	_hurt(target, dmg)
+	_hurt(target, dmg, role)
 	_count_damage(actor, dmg)
 	_log("%s → %s  %d" % [actor.name, target.name, dmg])
 	if int(target.thorns) > 0 and bool(actor.alive):
@@ -401,6 +427,8 @@ func _scaled_atk(u: Dictionary) -> int:
 
 
 func _pick_target(actor: Dictionary, foes: Array) -> Variant:
+	# Option A. Melee pressures the front column. Ranged pressures the lowest HP.
+	# Enemy melee still picks a ranged critter standing in that front column first.
 	if _role(actor) == "ranged":
 		return _lowest_hp(actor, foes)
 	if str(actor.side) == "enemy":
@@ -465,13 +493,18 @@ func _ortho(a: Dictionary, b: Dictionary) -> bool:
 	return d == 1
 
 
-func _hurt(u: Dictionary, amount: int) -> void:
+func _hurt(u: Dictionary, amount: int, via: String = "") -> void:
 	if not bool(u.alive):
 		return
 	u.hp = int(u.hp) - amount
 	if amount != 0:
-		floats.append({"uid": int(u.uid), "text": "-%d" % amount, "kind": "hit"})
-		cues.append({"uid": int(u.uid), "kind": "hit"})
+		var hit := {"uid": int(u.uid), "text": "-%d" % amount, "kind": "hit"}
+		var cue := {"uid": int(u.uid), "kind": "hit"}
+		if via != "":
+			hit["via"] = via
+			cue["via"] = via
+		floats.append(hit)
+		cues.append(cue)
 	if int(u.hp) <= 0:
 		u.hp = 0
 		u.alive = false
