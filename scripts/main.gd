@@ -1571,7 +1571,10 @@ func _shop_card(i: int) -> Panel:
 		row.add_child(_lbl("Empty", 14, MUTED))
 		return panel
 	var c: Dictionary = Game.critters[def_id]
-	row.add_child(TOKENS.present(str(c.family), int(c.tier), 64.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", ""))))
+	var shop_mark := TOKENS.species_mark(str(c.family), str(c.line), int(c.tier))
+	# Budmite's shop portrait is the 140-class canvas. The card stays the same height.
+	var shop_portrait := def_id == "budmite"
+	row.add_child(TOKENS.present(str(c.family), int(c.tier), 64.0, false, shop_mark, str(c.get("role", "")), shop_portrait))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL

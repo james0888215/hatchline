@@ -1,11 +1,11 @@
 extends TextureRect
 
-# Sproutling / Sparkpup / Cottonwisp only.
+# Sproutling / Sparkpup / Cottonwisp, plus the wild-cast meadow enemies and Budmite.
 # Idle loops on one shared clock. A combat squash or lunge holds the
 # current frame. A merge one-shot returns to idle, unless the triple
 # evolved into another species — that settles on the capsule.
-# Frames are starters-v1.3-anemononima (8 idle, 6 merge).
-# Files 00–07 already bake the pack order, blink on 07.
+# Starter frames are starters-v1.3-anemononima (8 idle, 6 merge).
+# Wild-cast frames are idle only (8). Files 00–07 already bake the pack order.
 # No scale tween rides on those frames. Merge returns to idle_00.
 
 const IDLE_FPS := 5.0
