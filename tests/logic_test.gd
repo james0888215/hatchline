@@ -526,9 +526,18 @@ func _test_sparring() -> String:
 	g.finish_combat()
 	if str(g.run.node_id) != "shop_a":
 		return "reward should open the stall, at " + str(g.run.node_id)
-	if int(g.run.coins) < g.econ("BUY_T1"):
+	var purse := int(g.run.coins)
+	var price: int = g.econ("BUY_T1")
+	var slots: int = g.econ("SHOP_SLOTS")
+	if purse < price:
 		return "can't afford a buy after fight 1"
-	print("  sparring rounds ", guard, " coins ", g.run.coins)
+	if purse >= price * 2:
+		return "first stall still buys a triple, purse %d" % purse
+	if purse >= slots * price:
+		return "first stall buys every offer"
+	if purse - price < g.econ("REROLL_COST"):
+		return "no coin left to reroll after one buy"
+	print("  sparring rounds ", guard, " coins ", purse)
 	return ""
 
 
@@ -592,8 +601,10 @@ func _test_unlock() -> String:
 		return "line stayed locked"
 	if "Budmite" not in str(g.run.result.unlock):
 		return "unlock copy"
-	if "budmite" not in g.starter_ids():
-		return "not a starter yet"
+	if "budmite" in g.starter_ids():
+		return "unlock joined the starter row"
+	if g.starter_ids().size() != 3:
+		return "starter row changed size"
 	if "budmite" not in g.pool_for_tier(1):
 		return "not in the shop pool"
 	if "foxfire" not in g.run.result.new_dex:
@@ -624,8 +635,8 @@ func _test_ui() -> String:
 	if hero == null or not (hero is TextureRect) or hero.custom_minimum_size.y < 80.0:
 		return "unlock capsule is not the hero"
 	var copy: Node = unlock.find_child("UnlockCopy", true, false)
-	if copy == null or not (copy is Label) or "starter row next run" not in str(copy.text):
-		return "unlock copy missing the full sentence"
+	if copy == null or not (copy is Label) or "shows up in the shop" not in str(copy.text):
+		return "unlock copy missing the shop sentence"
 	if copy is Label and (copy as Label).get_line_count() > (copy as Label).get_visible_line_count():
 		return "unlock copy clipped"
 	var dex: Node = main.find_child("DexTick", true, false)
@@ -639,14 +650,14 @@ func _test_ui() -> String:
 	await process_frame
 	if g.phase != "start":
 		return "retry did not return to starters"
-	var bud: Node = main.find_child("Starter_budmite", true, false)
-	if bud == null or "NEW" not in bud.text:
-		return "run 2 starter not marked new"
+	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
+		var card: Node = main.find_child("Starter_%s" % starter_id, true, false)
+		if card == null:
+			return "missing starter " + starter_id
+	if main.find_child("Starter_budmite", true, false) != null:
+		return "budmite still on the starter row"
 	if _text_has(main, "greybox"):
 		return "greybox subtitle still showing"
-	var bud_cap: Node = bud.find_child("Capsule", true, false)
-	if bud_cap == null or not (bud_cap is TextureRect) or bud_cap.texture == null:
-		return "budmite starter is not a capsule"
 	var sprout: Node = main.find_child("Starter_sproutling", true, false)
 	if sprout == null:
 		return "sproutling card missing"

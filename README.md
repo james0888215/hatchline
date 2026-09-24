@@ -36,7 +36,7 @@ godot --headless --path . -s res://tests/logic_test.gd
 7. Clear fights to earn coins. The path is Sparring → Stall → Wild Grass → a fork (shop or elite) → a picnic → Bramble → the last stall → the Meadow Matron.
 8. The Matron calls Sprig adds twice. An Ember evolve splashes them.
 9. A wipe ends the run. The defeat screen is one line, then **Retry**. Dex ticks and the new egg-line stay.
-10. Run 2 shows **Budmite** on the starter row, marked NEW, and in the shop. Reserve Park and Season Trail stay greyed out.
+10. Run 2 keeps the same three starters. **Budmite** joins the shop, marked NEW. Reserve Park and Season Trail stay greyed out.
 
 Interest is paid when you enter a shop: 1 coin per 5 you are holding, capped. Saving is how you afford the next triple. Selling a pair gives less than it cost.
 

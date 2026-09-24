@@ -743,17 +743,27 @@ func _shop_card(i: int) -> Panel:
 	var name := str(c.name)
 	if frozen:
 		name = "FROZEN  " + name
+	var title_row := HBoxContainer.new()
+	title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_row.add_theme_constant_override("separation", 6)
+	if str(c.line) in Game.profile.new_lines:
+		var chip := _chip("NEW", Color("f6d56b"))
+		chip.name = "ShopNew"
+		title_row.add_child(chip)
 	var title := _lbl("%s   %s T%d" % [name, str(c.family).capitalize(), int(c.tier)], 14, INK)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(title)
+	title_row.add_child(title)
+	box.add_child(title_row)
 	var stats := _lbl(Game.stat_line(c), 12, INK)
 	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(stats)
 	var actions := HBoxContainer.new()
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actions.add_theme_constant_override("separation", 6)
-	var buy := _btn("Buy %d" % Game.buy_cost_for_tier(int(c.tier)), Vector2(96, 28))
+	var cost := Game.buy_cost_for_tier(int(c.tier))
+	var buy := _btn("Buy %d" % cost, Vector2(96, 28))
 	buy.name = "BuyButton%d" % i
+	buy.disabled = cost > int(Game.run.coins)
 	buy.pressed.connect(Game.buy.bind(i))
 	actions.add_child(buy)
 	var fr := _btn("Unfreeze" if frozen else "Freeze", Vector2(96, 28))
