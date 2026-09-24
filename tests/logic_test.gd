@@ -499,12 +499,26 @@ func _test_combat_floats() -> String:
 	if cap.custom_minimum_size != cap.custom_minimum_size.round():
 		return "fight token is off a pixel"
 	var face_script = load("res://scripts/starter_face.gd")
-	if float(face_script.IDLE_FPS) < 6.0 or float(face_script.IDLE_FPS) > 8.0:
-		return "idle fps out of band"
-	if float(face_script.MERGE_FPS) < 10.0 or float(face_script.MERGE_FPS) > 12.0:
+	if absf(float(face_script.IDLE_FPS) - 5.0) > 0.01:
+		return "idle is not 5 fps"
+	var holds = face_script.IDLE_HOLD_STEPS
+	if holds.size() != 6:
+		return "idle hold is not the 6-frame sheet"
+	var span := 0.0
+	for step in holds:
+		span += float(step)
+	var cycle := span / float(face_script.IDLE_FPS)
+	var effective := float(holds.size()) / cycle
+	if effective < 4.9 or effective > 5.1:
+		return "idle is not a 5 fps loop"
+	if float(face_script.MERGE_FPS) < 8.0 or float(face_script.MERGE_FPS) > 10.0:
 		return "merge fps out of band"
-	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 4 or int(cap.get("merge_count")) != 5:
+	if float(face_script.MERGE_SETTLE) < 0.05 or float(face_script.MERGE_SETTLE) > 0.08:
+		return "merge settle out of band"
+	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 6 or int(cap.get("merge_count")) != 6:
 		return "sproutling board sheet"
+	if absf(cap.pivot_offset.x - cap.custom_minimum_size.x * 0.5) > 1.0 or absf(cap.pivot_offset.y - cap.custom_minimum_size.y) > 1.0:
+		return "starter pivot is not bottom-center"
 	var listed = tokens.make("ember", 1, 40.0, false, "sparkpup", "ranged")
 	if int(listed.get("sheet_px")) != 32:
 		return "sparkpup list should use 32"
@@ -1114,6 +1128,25 @@ func _test_starter_motion() -> String:
 	if str(board.get("mode")) != "idle" or board.texture == still:
 		board.queue_free()
 		return "idle did not leave the static frame"
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		return "idle stacked a scale tween"
+	var buddy = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
+	root.add_child(buddy)
+	var before_frame := int(board.get("frame_i"))
+	await create_timer(0.3).timeout
+	if int(board.get("frame_i")) == before_frame:
+		board.queue_free()
+		buddy.queue_free()
+		return "idle did not advance"
+	if int(board.get("frame_i")) != int(buddy.get("frame_i")):
+		board.queue_free()
+		buddy.queue_free()
+		return "starters do not share an idle clock"
+	if board.scale != Vector2.ONE or buddy.scale != Vector2.ONE:
+		board.queue_free()
+		buddy.queue_free()
+		return "idle stacked a scale tween"
 	var holder := Control.new()
 	root.add_child(holder)
 	var held = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
@@ -1128,28 +1161,44 @@ func _test_starter_motion() -> String:
 		tw.kill()
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		return "idle advanced during a tween"
 	tw.kill()
 	board.call("play_merge")
-	await create_timer(0.7).timeout
+	await create_timer(0.08).timeout
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		holder.queue_free()
+		buddy.queue_free()
+		return "merge stacked a scale tween"
+	board.call("play_merge")
+	await create_timer(0.95).timeout
 	if str(board.get("mode")) != "idle":
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		return "merge did not settle to idle"
+	if board.scale != Vector2.ONE:
+		board.queue_free()
+		holder.queue_free()
+		buddy.queue_free()
+		return "merge settle scaled the sheet"
 	var evolved = tokens.make("puff", 1, 64.0, false, "cottonwisp", "ranged")
 	root.add_child(evolved)
 	var cap_tex: Texture2D = tokens.clarity_texture("cloudbud")
 	var sz: Vector2 = evolved.custom_minimum_size
 	evolved.call("arm_settle", tokens.sheet_frame(cap_tex, int(sz.x), int(sz.y)))
 	evolved.call("play_merge")
-	await create_timer(0.7).timeout
+	await create_timer(0.95).timeout
 	if str(evolved.get("mode")) != "still":
 		board.queue_free()
 		holder.queue_free()
+		buddy.queue_free()
 		evolved.queue_free()
 		return "evolved merge did not settle to the capsule"
 	board.queue_free()
 	holder.queue_free()
+	buddy.queue_free()
 	evolved.queue_free()
 	return ""
 
@@ -1194,7 +1243,7 @@ func _test_starter_merge() -> String:
 	if page_wash == null or int(page_wash.z_index) >= 0:
 		main.queue_free()
 		return "merge put the page wash in front"
-	await create_timer(0.7).timeout
+	await create_timer(0.95).timeout
 	if not is_instance_valid(face) or str(face.get("mode")) != "still":
 		main.queue_free()
 		return "merge did not settle onto the evolved capsule"
@@ -1243,30 +1292,128 @@ func _test_ui() -> String:
 	await process_frame
 	await process_frame
 	if g.phase != "start":
-		return "retry did not return to starters"
-	var menu_wash: Node = main.find_child("StarterMeadow", true, false)
-	if menu_wash == null or int(menu_wash.z_index) >= 0:
-		return "menu wash should sit behind the starters"
-	var menu_under: Node = main.find_child("MenuWash", true, false)
-	if menu_under == null or int(menu_under.z_index) >= 0:
-		return "menu underlay should sit behind the page"
-	var menu_tex: Node = menu_under.find_child("WashUnderlay", true, false)
-	if menu_tex == null or not (menu_tex is TextureRect):
-		return "menu underlay texture missing"
-	if "wash-underlay-menu" not in str((menu_tex as TextureRect).texture.resource_path):
-		return "menu underlay is not the menu sheet"
-	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
-		var card: Node = main.find_child("Starter_%s" % starter_id, true, false)
-		if card == null:
-			return "missing starter " + starter_id
-	if main.find_child("Starter_budmite", true, false) != null:
-		return "budmite still on the starter row"
+		return "retry did not return to the title"
+	var title_err := _title_menu_err(main)
+	if title_err != "":
+		return title_err
+	var hover_play := main.find_child("PlayButton", true, false) as BaseButton
+	hover_play.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if hover_play.scale.x < 1.02 or hover_play.scale.x > 1.04:
+		return "title hover is not a small scale"
+	var hovered := hover_play.scale.x
+	await create_timer(0.3).timeout
+	if absf(hover_play.scale.x - hovered) > 0.001:
+		return "title button bounces at rest"
+	hover_play.mouse_exited.emit()
+	await create_timer(0.2).timeout
+	if absf(hover_play.scale.x - 1.0) > 0.02:
+		return "title hover did not return"
+	var options: Node = main.find_child("OptionsButton", true, false)
+	options.pressed.emit()
+	await process_frame
+	await process_frame
+	var volume: Node = main.find_child("OptionsVolume", true, false)
+	var full: Node = main.find_child("OptionsFullscreen", true, false)
+	if volume == null or not (volume is HSlider) or (volume as HSlider).editable:
+		return "volume placeholder missing"
+	if full == null or not (full is BaseButton) or not (full as BaseButton).disabled:
+		return "fullscreen placeholder missing"
+	if main.find_child("StarterRow", true, false) != null:
+		return "options is showing starters"
+	var opt_back: Node = main.find_child("BackButton", true, false)
+	if opt_back == null:
+		return "options back missing"
+	opt_back.pressed.emit()
+	await process_frame
+	await process_frame
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "options back: " + title_err
+	var dex_btn: Node = main.find_child("DexButton", true, false)
+	dex_btn.pressed.emit()
+	await process_frame
+	await process_frame
+	if main.find_child("DexScreen", true, false) == null:
+		return "hatch-dex did not open"
+	if main.find_child("StarterRow", true, false) != null:
+		return "hatch-dex is showing starters"
+	var dex_back: Node = main.find_child("BackButton", true, false)
+	if dex_back == null:
+		return "dex back missing"
+	dex_back.pressed.emit()
+	await process_frame
+	await process_frame
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "dex back: " + title_err
+	var play: Node = main.find_child("PlayButton", true, false)
+	play.pressed.emit()
+	await process_frame
+	await process_frame
+	var pick_err := _starter_pick_err(main)
+	if pick_err != "":
+		return pick_err
+	var wisp := main.find_child("Starter_cottonwisp", true, false) as BaseButton
+	wisp.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if wisp.scale.x < 1.02 or wisp.scale.x > 1.04:
+		return "starter card hover is not 1.03"
+	var wisp_face := wisp.find_child("Capsule", true, false) as Control
+	if wisp_face == null or wisp_face.scale != Vector2.ONE:
+		return "starter idle is scaling"
+	wisp.mouse_exited.emit()
+	await create_timer(0.2).timeout
+	if absf(wisp.scale.x - 1.0) > 0.02:
+		return "starter card hover did not return"
+	var spark := main.find_child("Starter_sparkpup", true, false) as BaseButton
+	spark.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if absf(spark.scale.x - 1.045) > 0.02:
+		return "selected card hover changed the scale"
+	var confirm_hover := main.find_child("ConfirmButton", true, false) as BaseButton
+	confirm_hover.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if confirm_hover.scale.x < 1.02 or confirm_hover.scale.x > 1.04:
+		return "confirm hover is not 1.03"
+	var back_hover := main.find_child("BackButton", true, false) as BaseButton
+	back_hover.mouse_entered.emit()
+	await create_timer(0.2).timeout
+	if back_hover.scale.x < 1.02 or back_hover.scale.x > 1.04:
+		return "back hover is not 1.03"
+	var pick_back: Node = main.find_child("BackButton", true, false)
+	pick_back.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "start":
+		return "back left the title phase"
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "starter back: " + title_err
+	play = main.find_child("PlayButton", true, false)
+	play.pressed.emit()
+	await process_frame
+	await process_frame
+	pick_err = _starter_pick_err(main)
+	if pick_err != "":
+		return pick_err
 	if _text_has(main, "greybox"):
 		return "greybox subtitle still showing"
 	var sprout: Node = main.find_child("Starter_sproutling", true, false)
 	if sprout == null:
 		return "sproutling card missing"
 	sprout.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "start":
+		return "card press started the run"
+	sprout = main.find_child("Starter_sproutling", true, false) as BaseButton
+	if sprout == null or absf((sprout as BaseButton).scale.x - 1.045) > 0.02:
+		return "sproutling did not select"
+	var confirm: Node = main.find_child("ConfirmButton", true, false)
+	if confirm == null:
+		return "confirm missing"
+	confirm.pressed.emit()
 	await process_frame
 	await process_frame
 	if str(g.run.node_id) != "sparring_1":
@@ -1576,6 +1723,224 @@ func _packed_stall(text: String) -> bool:
 	if "Interest" in text:
 		n += 1
 	return n > 1
+
+
+func _title_menu_err(main: Node) -> String:
+	if main.find_child("TitleMenu", true, false) == null:
+		return "title menu missing"
+	if main.find_child("StarterRow", true, false) != null or main.find_child("StarterMeadow", true, false) != null:
+		return "title is showing starters"
+	for starter_id in ["sproutling", "sparkpup", "cottonwisp", "budmite"]:
+		if main.find_child("Starter_%s" % starter_id, true, false) != null:
+			return "title is showing starter " + starter_id
+	var play := main.find_child("PlayButton", true, false) as BaseButton
+	var dex := main.find_child("DexButton", true, false) as BaseButton
+	var options := main.find_child("OptionsButton", true, false) as BaseButton
+	if play == null or dex == null or options == null:
+		return "title nav missing"
+	if play.custom_minimum_size != dex.custom_minimum_size or play.custom_minimum_size != options.custom_minimum_size:
+		return "title nav weights differ"
+	if play.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
+		return "play button stretches"
+	var nav := main.find_child("TitleNav", true, false)
+	if nav == null or not (nav is VBoxContainer):
+		return "title nav is not a vertical stack"
+	var view_h := play.get_viewport_rect().size.y
+	if view_h > 1.0 and play.size.y > 1.0:
+		var ui = load("res://scripts/main.gd")
+		var band := float(ui.TITLE_NAV_ANCHOR)
+		var play_y := play.get_global_rect().position.y
+		var dex_y := dex.get_global_rect().position.y
+		var options_y := options.get_global_rect().position.y
+		if play_y >= dex_y or dex_y >= options_y:
+			return "title nav is not stacked vertically"
+		if absf(play_y / view_h - band) > 0.04:
+			return "title pills are not at the raised lock"
+		var logo := main.find_child("TitleWordmark", true, false) as Control
+		if logo != null and logo.size.y > 1.0:
+			var word_top := logo.get_global_rect().position.y / view_h
+			if word_top < 0.06 or word_top > 0.14:
+				return "logo is not high in the sky"
+	if dex.size_flags_horizontal != Control.SIZE_SHRINK_CENTER or options.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
+		return "title nav stretches"
+	var play_box := play.get_theme_stylebox("normal")
+	if not (play_box is StyleBoxFlat):
+		return "play pill missing"
+	var pill := play_box as StyleBoxFlat
+	if pill.bg_color.r < 0.95 or pill.bg_color.g < 0.90 or pill.get_border_width(SIDE_LEFT) < 4:
+		return "play is not a cream pill"
+	var dex_box := dex.get_theme_stylebox("normal")
+	if dex_box is StyleBoxFlat and (dex_box as StyleBoxFlat).bg_color != pill.bg_color:
+		return "hatch-dex pill does not match play"
+	var mark := main.find_child("TitleMark", true, false)
+	if mark == null:
+		return "title mark missing"
+	var word := main.find_child("TitleWordmark", true, false) as TextureRect
+	if word == null or word.texture == null:
+		return "trio wordmark missing"
+	var word_path := str(word.texture.resource_path)
+	if "wordmark-hatchline-trio" not in word_path:
+		return "title logo is not the trio wordmark"
+	if "wordmark-hatchline-icon" in word_path or "wordmark-hatchline-only" in word_path:
+		return "archive wordmark is the default"
+	if word.scale != Vector2.ONE:
+		return "wordmark is moving"
+	var version := main.find_child("TitleVersion", true, false) as Label
+	if version == null or version.text != "v0.playtest-1":
+		return "version crumb missing"
+	var stage_err := _title_stage_err(main)
+	if stage_err != "":
+		return stage_err
+	var park := main.find_child("ReservePark", true, false) as BaseButton
+	var trail := main.find_child("SeasonTrail", true, false) as BaseButton
+	if park == null or trail == null or not park.disabled or not trail.disabled:
+		return "title park/trail tease missing"
+	if park.custom_minimum_size.y >= play.custom_minimum_size.y:
+		return "park tease competes with play"
+	if park.modulate.a > 0.85:
+		return "park tease is not greyed"
+	return ""
+
+
+func _starter_pick_err(main: Node) -> String:
+	if main.find_child("StarterPick", true, false) == null:
+		return "starter pick missing"
+	if main.find_child("PlayButton", true, false) != null:
+		return "play is still on the starter pick"
+	if main.find_child("TitleMenu", true, false) != null:
+		return "starter pick is still the title"
+	var menu_wash := main.find_child("StarterMeadow", true, false)
+	if menu_wash == null or int(menu_wash.z_index) >= 0:
+		return "menu wash should sit behind the starters"
+	var stage_err := _title_stage_err(main)
+	if stage_err != "":
+		return stage_err
+	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
+		if main.find_child("Starter_%s" % starter_id, true, false) == null:
+			return "missing starter " + starter_id
+	if main.find_child("Starter_budmite", true, false) != null:
+		return "budmite still on the starter row"
+	var prompt := main.find_child("StarterPrompt", true, false) as Label
+	if prompt == null or prompt.text != "Pick your starter":
+		return "starter header missing"
+	var sage: Color = prompt.get_theme_color("font_color")
+	if sage.g < sage.r or sage.g < 0.45:
+		return "starter header is not sage"
+	var confirm := main.find_child("ConfirmButton", true, false) as BaseButton
+	var back := main.find_child("BackButton", true, false) as BaseButton
+	if confirm == null or back == null:
+		return "starter pick actions missing"
+	if confirm.custom_minimum_size != Vector2(260, 48) or back.custom_minimum_size != Vector2(260, 48):
+		return "starter pills are not 260x48"
+	var view_h := prompt.get_viewport_rect().size.y
+	if view_h > 1.0 and prompt.size.y > 1.0:
+		var ui = load("res://scripts/main.gd")
+		var header_top: float = prompt.get_global_rect().position.y / view_h
+		if absf(header_top - float(ui.PICK_HEADER_ANCHOR)) > 0.04:
+			return "starter header is not near 10%"
+		for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
+			var card := main.find_child("Starter_%s" % starter_id, true, false) as Control
+			if card.size.y <= 1.0:
+				return "starter card has no size"
+			var mid: float = card.get_global_rect().get_center().y / view_h
+			if absf(mid - float(ui.PICK_CARD_ANCHOR)) > 0.04:
+				return "starter cards are not mid-screen"
+			var face := card.find_child("Capsule", true, false)
+			if face == null or face.get_script() == null:
+				return "starter portrait is not the idle sheet"
+			if str(face.get_script().resource_path) != "res://scripts/starter_face.gd":
+				return "starter portrait is not the idle sheet"
+			if (face as Control).scale != Vector2.ONE:
+				return "starter portrait scale is tweening"
+		var spark := main.find_child("Starter_sparkpup", true, false) as BaseButton
+		var sprout := main.find_child("Starter_sproutling", true, false) as BaseButton
+		if absf(spark.scale.x - float(ui.PICK_SELECTED_SCALE)) > 0.02:
+			return "sparkpup is not selected"
+		if absf(sprout.scale.x - 1.0) > 0.02:
+			return "unselected card is scaled"
+		var spark_box := spark.get_theme_stylebox("normal") as StyleBoxFlat
+		var sprout_box := sprout.get_theme_stylebox("normal") as StyleBoxFlat
+		if spark_box == null or spark_box.get_border_width(SIDE_LEFT) < 7:
+			return "selected card outline is thin"
+		if sprout_box == null or sprout_box.get_border_width(SIDE_LEFT) > 4:
+			return "idle card outline is thick"
+		if spark_box.shadow_size < 8:
+			return "selected card has no glow"
+		var action_top: float = confirm.get_global_rect().position.y / view_h
+		if absf(action_top - float(ui.PICK_ACTION_ANCHOR)) > 0.04:
+			return "starter pills are not near 74%"
+	var version := main.find_child("TitleVersion", true, false) as Label
+	if version == null or version.text != "v0.playtest-1":
+		return "version crumb missing"
+	return ""
+
+
+func _title_stage_err(main: Node) -> String:
+	var ui = load("res://scripts/main.gd")
+	if str(ui.TITLE_BG_CHOICE) != "pack":
+		return "pack stack is not the default"
+	if "title-composite-painted-alt" not in str(ui.TITLE_PAINTED_ALT):
+		return "painted alt is not loadable"
+	if "bg-title-texture-B" not in str(ui.TITLE_TEXTURE_B):
+		return "meadow fallback missing"
+	if main.find_child("TitleTexture", true, false) != null:
+		return "meadow fallback is showing"
+	var names := ["TitleSky", "TitleClouds", "TitleFar", "TitleMid", "TitleNear", "TitlePaper"]
+	var prev_z := -100
+	for layer_name in names:
+		var layer := main.find_child(layer_name, true, false)
+		if layer == null:
+			return "missing " + layer_name
+		if int(layer.z_index) <= prev_z or int(layer.z_index) >= 0:
+			return "scenery is out of order"
+		prev_z = int(layer.z_index)
+	var clouds := main.find_child("TitleClouds", true, false)
+	var drift := float(clouds.get_meta("drift_px"))
+	var drift_sec := float(clouds.get_meta("drift_sec"))
+	if drift < 8.0 or drift > 16.0 or drift_sec < 12.0 or drift_sec > 20.0:
+		return "cloud drift is out of band"
+	var paper := main.find_child("TitlePaper", true, false) as CanvasItem
+	if paper.modulate.a < 0.08 or paper.modulate.a > 0.12:
+		return "paper softlight is not a light veil"
+	var plate_err := _opaque_plate_err(main)
+	if plate_err != "":
+		return plate_err
+	var credit := main.find_child("SkyCredit", true, false) as Label
+	if credit == null or "edermunizz" not in credit.text.to_lower():
+		return "sky credit missing"
+	var sky_art := main.find_child("TitleSkyArt", true, false) as TextureRect
+	if sky_art == null or sky_art.texture == null or "layers/sky" not in str(sky_art.texture.resource_path):
+		return "sky layer missing"
+	return ""
+
+
+func _opaque_plate_err(main: Node) -> String:
+	var sky := main.find_child("TitleSky", true, false) as CanvasItem
+	if sky == null:
+		return "sky layer missing"
+	var sky_z := _canvas_z(sky)
+	for node in main.find_children("*", "ColorRect", true, false):
+		var rect := node as ColorRect
+		if rect.color.a < 0.5:
+			continue
+		var rect_h := rect.get_global_rect().size.y
+		var view_h := rect.get_viewport_rect().size.y
+		if view_h <= 1.0 or rect_h < view_h * 0.9:
+			continue
+		var z := _canvas_z(rect)
+		if z > sky_z and z < 0:
+			return "opaque plate covers the pack hills"
+	return ""
+
+
+func _canvas_z(node: CanvasItem) -> int:
+	var z := node.z_index
+	if not node.z_as_relative:
+		return z
+	var parent := node.get_parent()
+	if parent is CanvasItem:
+		return z + _canvas_z(parent)
+	return z
 
 
 func _text_has(node: Node, needle: String) -> bool:

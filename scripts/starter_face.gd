@@ -1,12 +1,21 @@
 extends TextureRect
 
 # Sproutling / Sparkpup / Cottonwisp only.
-# Idle loops while the token is sitting still. A combat squash or lunge
-# holds the current frame. A merge one-shot returns to idle, unless the
-# triple evolved into another species — that settles on the capsule.
+# Idle loops on one shared clock. A combat squash or lunge holds the
+# current frame. A merge one-shot returns to idle, unless the triple
+# evolved into another species — that settles on the capsule.
+# Frames are starters-v1.2-face (6 idle, 6 merge). Blink is idle_03.
+# ±1px eye drift is idle_01 and idle_04. No scale tween rides on those frames.
 
-const IDLE_FPS := 7.0
-const MERGE_FPS := 11.0
+const IDLE_FPS := 5.0
+const MERGE_FPS := 9.0
+const MERGE_SETTLE := 0.065
+# One tick each: neutral, micro-up, peak-up, blink, micro-down, peak-down.
+# At 5 FPS the sheet loops once every 1.2s. Peaks are already ≤4% in the art.
+const IDLE_HOLD_STEPS: Array = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+static var _clock: float = 0.0
+static var _clock_frame: int = -1
 
 var sheet_px: int = 64
 var mode: String = "idle"
@@ -18,7 +27,6 @@ var _idle: Array = []
 var _merge: Array = []
 var _settle: Texture2D = null
 var _accum: float = 0.0
-var _primed: bool = false
 
 
 func setup(px: int, static_tex: Texture2D, idle_frames: Array, merge_frames: Array) -> void:
@@ -30,13 +38,13 @@ func setup(px: int, static_tex: Texture2D, idle_frames: Array, merge_frames: Arr
 	mode = "idle"
 	frame_i = 0
 	_accum = 0.0
-	_primed = false
 	_settle = null
+	scale = Vector2.ONE
 	texture = static_tex
 
 
 func has_merge() -> bool:
-	return _merge.size() >= 5
+	return _merge.size() >= 6
 
 
 func arm_settle(tex: Texture2D) -> void:
@@ -44,6 +52,7 @@ func arm_settle(tex: Texture2D) -> void:
 
 
 func play_merge() -> void:
+	scale = Vector2.ONE
 	if _merge.is_empty():
 		_finish_merge()
 		return
@@ -54,45 +63,85 @@ func play_merge() -> void:
 
 
 func _process(delta: float) -> void:
+	_advance_clock(delta)
 	if mode == "still":
 		return
 	if mode == "idle" and _mid_tween():
 		return
+	if mode == "settle":
+		_accum += delta
+		if _accum < MERGE_SETTLE:
+			return
+		mode = "idle"
+		_show_shared_idle()
+		return
 	var frames: Array = _merge if mode == "merge" else _idle
 	if frames.is_empty():
 		return
-	var fps := MERGE_FPS if mode == "merge" else IDLE_FPS
-	if fps <= 0.0:
+	if mode == "idle":
+		_show_shared_idle()
+		return
+	if MERGE_FPS <= 0.0:
 		return
 	_accum += delta
-	var step := 1.0 / fps
+	var step := 1.0 / MERGE_FPS
 	while _accum >= step:
 		_accum -= step
-		if mode == "idle" and not _primed:
-			_primed = true
-			frame_i = 0
-			texture = frames[0]
-			continue
-		if mode == "merge":
-			frame_i += 1
-			if frame_i >= frames.size():
-				_finish_merge()
-				return
-			texture = frames[frame_i]
-		else:
-			frame_i = (frame_i + 1) % frames.size()
-			texture = frames[frame_i]
+		frame_i += 1
+		if frame_i >= frames.size():
+			_finish_merge()
+			return
+		texture = frames[frame_i]
+
+
+func _advance_clock(delta: float) -> void:
+	var tick := Engine.get_process_frames()
+	if tick == _clock_frame:
+		return
+	_clock_frame = tick
+	_clock += delta
+
+
+func _show_shared_idle() -> void:
+	if _idle.is_empty():
+		return
+	var count := _idle.size()
+	var total := 0.0
+	for i in count:
+		total += _idle_hold(i)
+	if total <= 0.0:
+		return
+	var t := fposmod(_clock, total)
+	var walked := 0.0
+	var index := 0
+	for i in count:
+		walked += _idle_hold(i)
+		if t < walked:
+			index = i
+			break
+		index = i
+	frame_i = index
+	texture = _idle[index]
+	scale = Vector2.ONE
+
+
+func _idle_hold(index: int) -> float:
+	var step := 1.0 / IDLE_FPS
+	if index < 0 or index >= IDLE_HOLD_STEPS.size():
+		return step
+	return step * float(IDLE_HOLD_STEPS[index])
 
 
 func _finish_merge() -> void:
 	_accum = 0.0
 	frame_i = 0
+	scale = Vector2.ONE
 	if _settle != null:
 		texture = _settle
 		mode = "still"
 		return
-	mode = "idle"
-	_primed = true
+	# 65ms on the rest frame, then the shared idle clock. Interruptible.
+	mode = "settle"
 	if not _idle.is_empty():
 		texture = _idle[0]
 

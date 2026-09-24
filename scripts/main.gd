@@ -6,6 +6,43 @@ const LINKS := preload("res://scripts/buddy_overlay.gd")
 const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
+# Title chrome only. In-run wash stays meadow-wash-v2.
+# Default scenic title is the pack stack. Meadow B and the painted alt are swaps.
+# Logo stays the trio wordmark. James locked the first pill at 58% from the top.
+const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
+const TITLE_COMPOSITE := TITLE_ART_DIR + "/composite"
+const TITLE_BG_CHOICE := "pack"
+const TITLE_LOGO_PX := 512
+const TITLE_LOGO_ANCHOR := 0.09
+const TITLE_NAV_ANCHOR := 0.58
+# First pill top stays at TITLE_NAV_ANCHOR. The stack is 3×54 plus two 18px gaps.
+const TITLE_NAV_BAND := 198.0
+const TITLE_HOVER_SCALE := 1.03
+const TITLE_HOVER_SEC := 0.15
+const PICK_HEADER_ANCHOR := 0.10
+const PICK_CARD_ANCHOR := 0.44
+const PICK_ACTION_ANCHOR := 0.74
+const PICK_SELECTED_SCALE := 1.045
+const PICK_HOVER_SEC := 0.11
+const TITLE_VERSION := "v0.playtest-1"
+const CLOUD_DRIFT_PX := 12.0
+const CLOUD_DRIFT_SEC := 16.0
+const FAR_DRIFT_PX := 6.0
+const FAR_DRIFT_SEC := 32.0
+const MID_DRIFT_PX := 8.0
+const MID_DRIFT_SEC := 24.0
+const NEAR_DRIFT_PX := 3.0
+const NEAR_DRIFT_SEC := 40.0
+const PAPER_SOFT_ALPHA := 0.10
+const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
+const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
+const TITLE_PAINTED_ALT := TITLE_COMPOSITE + "/title-composite-painted-alt.png"
+const FLOURISH_TITLE := TITLE_ART_DIR + "/flourish-title-underlay-1280x800.png"
+const FLOURISH_PICK := TITLE_ART_DIR + "/flourish-starter-pick-1280x800.png"
+const TITLE_PAPER := Color("F7F2E8")
+const TITLE_PILL := Color("FAF6EE")
+const TITLE_CHARCOAL := Color("2C2A28")
+
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
 const MUTED := Color("8a847a")
@@ -29,6 +66,9 @@ var tick: Timer
 var flash_timer: Timer
 var _rebuild_queued := false
 var dex_open := false
+var options_open := false
+var pick_open := false
+var pick_id := "sparkpup"
 var _ending := false
 var log_open := false
 var punch_uid := -1
@@ -60,7 +100,9 @@ func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.name = "Paper"
 	bg.color = CREAM
-	bg.z_index = MEADOW.Z_BEHIND - 1
+	# Behind the meadow wash (z -8) and the whole pack stack (sky is z -20).
+	# A plate at z -9 sat on top of the hills and flattened the title to cream.
+	bg.z_index = -40
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -108,6 +150,10 @@ func _queue_rebuild() -> void:
 
 func _rebuild() -> void:
 	_rebuild_queued = false
+	if Game.phase != "start":
+		pick_open = false
+		dex_open = false
+		options_open = false
 	if Game.phase == "combat" and Game.combat != null and Game.combat.over:
 		Game.finish_combat()
 		return
@@ -115,7 +161,10 @@ func _rebuild() -> void:
 		tick.stop()
 		_ending = false
 	_clear_host()
-	if Game.phase == "start" or Game.phase == "prep" or Game.phase == "combat":
+	var title_stage := Game.phase == "start" and not dex_open and not options_open
+	if title_stage:
+		_add_title_stage(pick_open)
+	elif Game.phase == "start" or Game.phase == "prep" or Game.phase == "combat":
 		var back = MEADOW.new()
 		back.name = "MenuWash" if Game.phase == "start" else "MeadowWash"
 		back.sheet = "menu" if Game.phase == "start" else "battle"
@@ -272,95 +321,648 @@ func _clear_flash() -> void:
 
 
 func _build_start(page: VBoxContainer) -> void:
-	page.add_child(_lbl("HATCHLINE", 40, INK))
-	page.add_child(_lbl("Meadow Circuit", 18, MUTED))
-	page.add_child(_lbl("Three of a kind evolve. Same-family neighbours share a bonus.", 16, INK))
-	var dex_n: int = Game.profile.discovered.size()
-	var dex_line := "Hatch-dex %d/%d    ·    runs %d" % [dex_n, Game.critter_order.size(), int(Game.profile.runs)]
-	page.add_child(_lbl(dex_line, 14, MUTED))
-	if dex_open:
-		page.add_child(_dex_grid())
-		var back := _btn("Back", Vector2(160, 40))
-		back.name = "BackButton"
-		back.pressed.connect(func() -> void:
-			dex_open = false
-			_queue_rebuild()
-		)
-		page.add_child(back)
+	if pick_open:
+		page.name = "StarterPick"
+		_build_starter_pick(page)
+	elif dex_open:
+		page.name = "DexScreen"
+		_build_dex_screen(page)
+	elif options_open:
+		page.name = "OptionsScreen"
+		_build_options_screen(page)
 	else:
-		var band = MEADOW.new()
-		band.name = "StarterMeadow"
-		band.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		band.custom_minimum_size = Vector2(0, 280)
-		page.add_child(band)
-		var row := HBoxContainer.new()
-		row.name = "StarterRow"
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 28)
-		row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		row.offset_left = 8
-		row.offset_right = -8
-		row.offset_top = -268
-		row.offset_bottom = -6
-		band.add_child(row)
-		_lift_over_wash(row)
-		for id in Game.starter_ids():
-			row.add_child(_starter_card(str(id)))
-		var dex_btn := _btn("Hatch-dex", Vector2(160, 36))
-		dex_btn.name = "DexButton"
-		dex_btn.pressed.connect(func() -> void:
-			dex_open = true
-			_queue_rebuild()
-		)
-		page.add_child(dex_btn)
-	page.add_child(_tease_row())
+		page.name = "TitleMenu"
+		_build_title_menu(page)
 
 
-func _starter_card(id: String) -> Button:
+func _build_title_menu(page: VBoxContainer) -> void:
+	var margin := page.get_parent()
+	if margin is MarginContainer:
+		margin.add_theme_constant_override("margin_left", 0)
+		margin.add_theme_constant_override("margin_right", 0)
+		margin.add_theme_constant_override("margin_top", 0)
+		margin.add_theme_constant_override("margin_bottom", 0)
+	var stage := Control.new()
+	stage.name = "TitleChrome"
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(stage)
+	var cluster := VBoxContainer.new()
+	cluster.name = "TitleCluster"
+	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+	cluster.add_theme_constant_override("separation", 4)
+	cluster.add_child(_title_mark())
+	cluster.add_child(_dex_status())
+	_pin_band(cluster, TITLE_LOGO_ANCHOR, 176.0)
+	stage.add_child(cluster)
+	var play := _title_pill("Play", "PlayButton")
+	play.pressed.connect(_open_starter_pick)
+	var dex := _title_pill("Hatch-dex", "DexButton")
+	dex.pressed.connect(_open_dex)
+	var options := _title_pill("Options", "OptionsButton")
+	options.pressed.connect(_open_options)
+	var nav := VBoxContainer.new()
+	nav.name = "TitleNav"
+	nav.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav.add_theme_constant_override("separation", 18)
+	nav.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	nav.add_child(play)
+	nav.add_child(dex)
+	nav.add_child(options)
+	_pin_band(nav, TITLE_NAV_ANCHOR, TITLE_NAV_BAND)
+	stage.add_child(nav)
+	var later := _centered_lbl("Later circuits", 13, MUTED)
+	later.name = "LaterCircuits"
+	_pin_band(later, TITLE_NAV_ANCHOR, 22.0)
+	later.offset_top = TITLE_NAV_BAND + 8.0
+	later.offset_bottom = TITLE_NAV_BAND + 30.0
+	stage.add_child(later)
+	var teases := _tease_row()
+	_pin_band(teases, TITLE_NAV_ANCHOR, 34.0)
+	teases.offset_top = TITLE_NAV_BAND + 34.0
+	teases.offset_bottom = TITLE_NAV_BAND + 68.0
+	stage.add_child(teases)
+	var version := _lbl(TITLE_VERSION, 12, Color(TITLE_CHARCOAL, 0.72))
+	version.name = "TitleVersion"
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.anchor_left = 1.0
+	version.anchor_right = 1.0
+	version.anchor_top = 1.0
+	version.anchor_bottom = 1.0
+	version.offset_left = -168.0
+	version.offset_right = -16.0
+	version.offset_top = -28.0
+	version.offset_bottom = -10.0
+	version.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	version.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	stage.add_child(version)
+
+
+func _build_starter_pick(page: VBoxContainer) -> void:
+	var margin := page.get_parent()
+	if margin is MarginContainer:
+		margin.add_theme_constant_override("margin_left", 0)
+		margin.add_theme_constant_override("margin_right", 0)
+		margin.add_theme_constant_override("margin_top", 0)
+		margin.add_theme_constant_override("margin_bottom", 0)
+	var stage := Control.new()
+	stage.name = "StarterChrome"
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(stage)
+	var wash := ColorRect.new()
+	wash.name = "StarterMeadow"
+	wash.color = Color(TITLE_CHARCOAL.r, TITLE_CHARCOAL.g, TITLE_CHARCOAL.b, 0.12)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wash.z_index = -2
+	wash.anchor_left = 0.0
+	wash.anchor_right = 1.0
+	wash.anchor_top = 0.30
+	wash.anchor_bottom = 0.58
+	stage.add_child(wash)
+	var header := _lbl("Pick your starter", 34, Color("5A8F6A"))
+	header.name = "StarterPrompt"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_color_override("font_outline_color", TITLE_CHARCOAL)
+	header.add_theme_constant_override("outline_size", 8)
+	_pin_band(header, PICK_HEADER_ANCHOR, 48.0)
+	stage.add_child(header)
+	var row := HBoxContainer.new()
+	row.name = "StarterRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 36)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin_center(row, PICK_CARD_ANCHOR, 188.0)
+	stage.add_child(row)
+	for id in Game.starter_ids():
+		row.add_child(_pick_card(str(id)))
+	var back := _pick_pill("Back", "BackButton")
+	back.pressed.connect(_show_title_menu)
+	var confirm := _pick_pill("Confirm", "ConfirmButton")
+	confirm.pressed.connect(_confirm_pick)
+	var actions := _center_row([back, confirm], 28)
+	actions.name = "PickActions"
+	_pin_band(actions, PICK_ACTION_ANCHOR, 48.0)
+	stage.add_child(actions)
+	var version := _lbl(TITLE_VERSION, 12, Color(TITLE_CHARCOAL, 0.72))
+	version.name = "TitleVersion"
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.anchor_left = 1.0
+	version.anchor_right = 1.0
+	version.anchor_top = 1.0
+	version.anchor_bottom = 1.0
+	version.offset_left = -168.0
+	version.offset_right = -16.0
+	version.offset_top = -28.0
+	version.offset_bottom = -10.0
+	version.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	version.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	stage.add_child(version)
+
+
+func _pin_center(node: Control, anchor: float, height: float) -> void:
+	node.anchor_left = 0.0
+	node.anchor_right = 1.0
+	node.anchor_top = anchor
+	node.anchor_bottom = anchor
+	node.offset_left = 0.0
+	node.offset_right = 0.0
+	node.offset_top = -height * 0.5
+	node.offset_bottom = height * 0.5
+	node.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	node.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+func _pick_card(id: String) -> Control:
 	var c: Dictionary = Game.critters[id]
+	var selected := id == pick_id
+	# The row is a container, and containers reset child scale. The shell
+	# keeps the layout size; the button inside carries selection and hover.
+	var shell := Control.new()
+	shell.custom_minimum_size = Vector2(204, 176)
+	shell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	shell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if selected:
+		shell.z_index = 1
 	var b := Button.new()
 	b.name = "Starter_%s" % id
-	b.custom_minimum_size = Vector2(210, 0)
-	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var is_new: bool = str(c.line) in Game.profile.new_lines
-	b.text = ("NEW\n" if is_new else "") + str(c.name)
+	b.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.clip_text = false
+	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 1)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(state, Color(0, 0, 0, 0))
-	var clear := _style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0)
-	var hover := _style(Color(1, 1, 1, 0.28), INK, 2)
-	b.add_theme_stylebox_override("normal", clear)
-	b.add_theme_stylebox_override("hover", hover)
-	b.add_theme_stylebox_override("pressed", hover)
-	b.add_theme_stylebox_override("focus", clear)
+	var box := _pick_card_style(7 if selected else 4, selected)
+	b.add_theme_stylebox_override("normal", box)
+	b.add_theme_stylebox_override("hover", box)
+	b.add_theme_stylebox_override("pressed", box)
+	b.add_theme_stylebox_override("focus", box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_END
-	col.add_theme_constant_override("separation", 1)
+	col.offset_left = 12.0
+	col.offset_top = 8.0
+	col.offset_right = -12.0
+	col.offset_bottom = -8.0
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 2)
 	var hold := CenterContainer.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var token := TOKENS.present(str(c.family), int(c.tier), 128.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), str(c.get("role", "")))
+	hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var token := TOKENS.present(str(c.family), int(c.tier), 140.0, false, TOKENS.species_mark(str(c.family), str(c.line), int(c.tier)), "")
 	hold.add_child(token)
 	col.add_child(hold)
-	if is_new:
-		var chip_row := CenterContainer.new()
-		chip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip_row.add_child(_chip("NEW", Color("f6d56b")))
-		col.add_child(chip_row)
-	var name := _lbl(str(c.name), 20, INK)
+	var name := _lbl(str(c.name), 18, TITLE_CHARCOAL)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(name)
-	var sub := _lbl("%s  ·  T%d" % [str(c.family).capitalize(), int(c.tier)], 13, MUTED)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(sub)
-	var stats := _lbl("%d HP    %d ATK" % [int(c.hp), int(c.atk)], 12, MUTED)
-	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(stats)
+	var cue := _lbl(str(c.family).capitalize(), 13, Color(TITLE_CHARCOAL.r, TITLE_CHARCOAL.g, TITLE_CHARCOAL.b, 0.62))
+	cue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cue.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(cue)
 	b.add_child(col)
-	b.pressed.connect(Game.choose_starter.bind(id))
+	var base := PICK_SELECTED_SCALE if selected else 1.0
+	b.pivot_offset = shell.custom_minimum_size * 0.5
+	b.scale = Vector2(base, base)
+	b.resized.connect(func() -> void:
+		if b.size.x > 1.0:
+			b.pivot_offset = b.size * 0.5
+	)
+	b.pressed.connect(_select_pick.bind(id))
+	b.mouse_entered.connect(_pick_card_hover.bind(b, id, true))
+	b.mouse_exited.connect(_pick_card_hover.bind(b, id, false))
+	shell.add_child(b)
+	return shell
+
+
+func _pick_card_style(border: int, glow: bool) -> StyleBoxFlat:
+	var box := _style(TITLE_PILL, TITLE_CHARCOAL, border)
+	box.set_corner_radius_all(18)
+	box.set_content_margin_all(8)
+	if glow:
+		box.shadow_color = Color(0.98, 0.95, 0.88, 0.95)
+		box.shadow_size = 14
+		box.shadow_offset = Vector2.ZERO
+	return box
+
+
+func _pick_card_hover(b: Button, id: String, over: bool) -> void:
+	var target := PICK_SELECTED_SCALE if id == pick_id else (TITLE_HOVER_SCALE if over else 1.0)
+	_pick_hover(b, target)
+
+
+func _pick_hover(b: Button, target: float) -> void:
+	var sz := b.size
+	if sz.x < 1.0:
+		sz = b.custom_minimum_size
+	b.pivot_offset = sz * 0.5
+	if b.has_meta("hover_tw"):
+		var old = b.get_meta("hover_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(target, target), PICK_HOVER_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	b.set_meta("hover_tw", tw)
+
+
+func _pick_pill(text: String, node_name: String) -> Button:
+	var b := _title_pill(text, node_name, PICK_HOVER_SEC)
+	b.custom_minimum_size = Vector2(260, 48)
 	return b
+
+
+func _select_pick(id: String) -> void:
+	if id == pick_id:
+		return
+	pick_id = id
+	_queue_rebuild()
+
+
+func _confirm_pick() -> void:
+	Game.choose_starter(pick_id)
+
+
+func _build_dex_screen(page: VBoxContainer) -> void:
+	var head := _centered_lbl("Hatch-dex", 28, INK)
+	head.name = "DexHeading"
+	page.add_child(head)
+	page.add_child(_dex_status())
+	page.add_child(_dex_grid())
+	page.add_child(_center_row([_back_btn()], 0))
+
+
+func _build_options_screen(page: VBoxContainer) -> void:
+	var head := _centered_lbl("Options", 28, INK)
+	head.name = "OptionsHeading"
+	page.add_child(head)
+	var note := _centered_lbl("Placeholders — not wired yet.", 14, MUTED)
+	note.name = "OptionsNote"
+	page.add_child(note)
+	page.add_child(_option_row("Volume", "OptionsVolume", true))
+	page.add_child(_option_row("Fullscreen", "OptionsFullscreen", false))
+	page.add_child(_v_spacer(true, 8.0))
+	page.add_child(_center_row([_back_btn()], 0))
+
+
+func _show_title_menu() -> void:
+	pick_open = false
+	dex_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_starter_pick() -> void:
+	pick_id = "sparkpup"
+	pick_open = true
+	dex_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_dex() -> void:
+	dex_open = true
+	pick_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_options() -> void:
+	options_open = true
+	pick_open = false
+	dex_open = false
+	_queue_rebuild()
+
+
+func _add_title_stage(for_pick: bool) -> void:
+	if TITLE_BG_CHOICE == "pack" and _title_tex(_pack_layer_path("sky.png")) != null:
+		_add_pack_stack()
+		return
+	if TITLE_BG_CHOICE == "painted" and _title_tex(TITLE_PAINTED_ALT) != null:
+		var alt := _title_plate(_title_tex(TITLE_PAINTED_ALT))
+		alt.name = "TitlePainted"
+		alt.z_index = -6
+		host.add_child(alt)
+		return
+	_add_meadow_fallback(for_pick)
+
+
+func _add_pack_stack() -> void:
+	# sky → clouds → far → mid → near → paper → logo and buttons (page z 0)
+	host.add_child(_pack_layer("TitleSky", "sky.png", -20, 0.0, 0.0))
+	host.add_child(_pack_layer("TitleClouds", "clouds.png", -16, CLOUD_DRIFT_PX, CLOUD_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleFar", "far.png", -14, FAR_DRIFT_PX, FAR_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleMid", "mid.png", -12, MID_DRIFT_PX, MID_DRIFT_SEC))
+	host.add_child(_pack_layer("TitleNear", "near.png", -10, NEAR_DRIFT_PX, NEAR_DRIFT_SEC))
+	var paper := _pack_layer("TitlePaper", "paper-softlight.png", -8, 0.0, 0.0)
+	paper.modulate = Color(1, 1, 1, PAPER_SOFT_ALPHA)
+	host.add_child(paper)
+	host.add_child(_sky_credit())
+
+
+func _sky_credit() -> Label:
+	var credit := _lbl("Sky — edermunizz", 12, Color(TITLE_CHARCOAL, 0.62))
+	credit.name = "SkyCredit"
+	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	credit.anchor_left = 0.0
+	credit.anchor_right = 0.0
+	credit.anchor_top = 1.0
+	credit.anchor_bottom = 1.0
+	credit.offset_left = 16.0
+	credit.offset_right = 240.0
+	credit.offset_top = -28.0
+	credit.offset_bottom = -10.0
+	credit.grow_horizontal = Control.GROW_DIRECTION_END
+	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	return credit
+
+
+func _pack_layer_path(file_name: String) -> String:
+	return "%s/layers/%s" % [TITLE_COMPOSITE, file_name]
+
+
+func _pack_layer(node_name: String, file_name: String, z: int, drift_px: float, drift_sec: float) -> Control:
+	var clip := Control.new()
+	clip.name = node_name
+	clip.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.clip_contents = true
+	clip.z_index = z
+	clip.set_meta("drift_px", drift_px)
+	clip.set_meta("drift_sec", drift_sec)
+	var rect := TextureRect.new()
+	rect.name = node_name + "Art"
+	rect.texture = _title_tex(_pack_layer_path(file_name))
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	clip.add_child(rect)
+	if drift_px <= 0.0:
+		rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		return clip
+	var fit := func() -> void:
+		rect.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		rect.position.y = 0.0
+		rect.size = clip.size + Vector2(drift_px, 0.0)
+	clip.resized.connect(fit)
+	fit.call()
+	rect.position.x = -drift_px
+	var tw := rect.create_tween()
+	tw.set_loops()
+	tw.tween_property(rect, "position:x", 0.0, drift_sec).set_trans(Tween.TRANS_LINEAR)
+	tw.tween_property(rect, "position:x", -drift_px, drift_sec).set_trans(Tween.TRANS_LINEAR)
+	rect.set_meta("drift_tw", tw)
+	return clip
+
+
+func _add_meadow_fallback(for_pick: bool) -> void:
+	var plate := _title_plate(_title_tex(TITLE_TEXTURE_B))
+	plate.name = "TitleTexture"
+	plate.z_index = -6
+	host.add_child(plate)
+	var hills := _title_plate(_title_tex(FLOURISH_PICK if for_pick else FLOURISH_TITLE))
+	hills.name = "TitleFlourish"
+	hills.z_index = -4
+	host.add_child(hills)
+
+
+func _title_texture_path() -> String:
+	if TITLE_BG_CHOICE == "painted":
+		return TITLE_PAINTED_ALT
+	return TITLE_TEXTURE_B
+
+
+func _trio_logo_path() -> String:
+	return "%s/wordmark-hatchline-trio-%d.png" % [TITLE_ART_DIR, TITLE_LOGO_PX]
+
+
+func _title_plate(tex: Texture2D) -> Control:
+	if tex == null:
+		var cream := ColorRect.new()
+		cream.color = TITLE_PAPER
+		cream.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cream.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return cream
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.clip_contents = true
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	# Uniform cover. Squashing 800px into 720px pulls the hills into the buttons.
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	return rect
+
+
+func _title_mark() -> Control:
+	var box := VBoxContainer.new()
+	box.name = "TitleMark"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 4)
+	var logo := _title_tex(_trio_logo_path())
+	box.add_child(_title_rect("TitleWordmark", logo, "Trio above the Hatchline wordmark. Art overwrites this file in place."))
+	if logo == null:
+		var placeholder := _centered_lbl("HATCHLINE", 48, INK)
+		placeholder.name = "TitlePlaceholder"
+		box.add_child(placeholder)
+	var sub := _centered_lbl("Meadow Circuit", 18, MUTED)
+	sub.name = "TitleSubtitle"
+	box.add_child(sub)
+	return box
+
+
+func _title_tex(path: String) -> Texture2D:
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+
+func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
+	var hook := TextureRect.new()
+	hook.name = node_name
+	hook.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hook.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hook.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hook.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	hook.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	hook.tooltip_text = tip
+	hook.set_meta("art_hook", node_name)
+	hook.texture = tex
+	if tex == null:
+		hook.custom_minimum_size = Vector2.ZERO
+		return hook
+	var h := float(tex.get_height())
+	var w := float(tex.get_width())
+	if h > 132.0:
+		w = 132.0 * w / h
+		h = 132.0
+	hook.custom_minimum_size = Vector2(w, h)
+	return hook
+
+
+func _dex_status() -> Label:
+	var dex_n: int = Game.profile.discovered.size()
+	var line := _centered_lbl("Hatch-dex %d/%d    ·    runs %d" % [dex_n, Game.critter_order.size(), int(Game.profile.runs)], 14, MUTED)
+	line.name = "DexStatus"
+	return line
+
+
+func _title_pill(text: String, node_name: String, hover_sec: float = TITLE_HOVER_SEC) -> Button:
+	var b := _btn(text, Vector2(300, 54))
+	b.name = node_name
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.clip_text = false
+	b.add_theme_font_size_override("font_size", 18)
+	var normal := _pill_style(TITLE_PILL)
+	var hover := _pill_style(Color("fff8ee"))
+	var pressed := _pill_style(Color("f0e6d4"))
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", normal)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(state, TITLE_CHARCOAL)
+	_arm_title_hover(b, hover_sec)
+	return b
+
+
+func _pill_style(fill: Color) -> StyleBoxFlat:
+	var box := _style(fill, TITLE_CHARCOAL, 4)
+	box.set_corner_radius_all(27)
+	return box
+
+
+func _pin_band(node: Control, anchor: float, height: float) -> void:
+	node.anchor_left = 0.0
+	node.anchor_right = 1.0
+	node.anchor_top = anchor
+	node.anchor_bottom = anchor
+	node.offset_left = 0.0
+	node.offset_right = 0.0
+	node.offset_top = 0.0
+	node.offset_bottom = height
+	node.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	node.grow_vertical = Control.GROW_DIRECTION_END
+
+
+func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
+	var b := _btn(text, Vector2(200, 52))
+	b.name = node_name
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.clip_text = false
+	b.add_theme_font_size_override("font_size", 18)
+	if primary:
+		var normal := _style(Color("f6d56b"), INK, 3)
+		var hover := _style(Color("ffe7a3"), INK, 3)
+		var pressed := _style(Color("e6c15a"), INK, 3)
+		b.add_theme_stylebox_override("normal", normal)
+		b.add_theme_stylebox_override("hover", hover)
+		b.add_theme_stylebox_override("pressed", pressed)
+		b.add_theme_stylebox_override("focus", normal)
+	_arm_title_hover(b)
+	return b
+
+
+func _arm_title_hover(b: Button, seconds: float = TITLE_HOVER_SEC) -> void:
+	b.mouse_entered.connect(func() -> void:
+		_title_hover(b, TITLE_HOVER_SCALE, seconds)
+	)
+	b.mouse_exited.connect(func() -> void:
+		_title_hover(b, 1.0, seconds)
+	)
+
+
+func _title_hover(b: Button, target: float, seconds: float = TITLE_HOVER_SEC) -> void:
+	var sz := b.size
+	if sz.x < 1.0:
+		sz = b.custom_minimum_size
+	b.pivot_offset = sz * 0.5
+	if b.has_meta("hover_tw"):
+		var old = b.get_meta("hover_tw")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(target, target), seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	b.set_meta("hover_tw", tw)
+
+
+func _back_btn() -> Button:
+	var back := _menu_btn("Back", "BackButton", false)
+	back.pressed.connect(_show_title_menu)
+	return back
+
+
+func _option_row(label: String, node_name: String, volume: bool) -> CenterContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lab := _lbl(label, 16, MUTED)
+	lab.custom_minimum_size = Vector2(120, 0)
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(lab)
+	if volume:
+		var slider := HSlider.new()
+		slider.name = node_name
+		slider.min_value = 0
+		slider.max_value = 100
+		slider.value = 80
+		slider.editable = false
+		slider.custom_minimum_size = Vector2(220, 28)
+		slider.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		slider.tooltip_text = "Volume placeholder — not wired yet."
+		slider.modulate = Color(1, 1, 1, 0.55)
+		row.add_child(slider)
+	else:
+		var toggle := CheckButton.new()
+		toggle.name = node_name
+		toggle.text = "Off"
+		toggle.disabled = true
+		toggle.button_pressed = false
+		toggle.tooltip_text = "Fullscreen placeholder — not wired yet."
+		toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		toggle.modulate = Color(1, 1, 1, 0.55)
+		row.add_child(toggle)
+	return _center_row([row], 0)
+
+
+func _center_row(children: Array, separation: int) -> CenterContainer:
+	var hold := CenterContainer.new()
+	hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", separation)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in children:
+		row.add_child(child)
+	hold.add_child(row)
+	return hold
+
+
+func _v_spacer(expand: bool, min_h: float) -> Control:
+	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if expand:
+		gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if min_h > 0.0:
+		gap.custom_minimum_size = Vector2(0, min_h)
+	return gap
+
+
+func _centered_lbl(text: String, size: int, color: Color) -> Label:
+	var lab := _lbl(text, size, color)
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return lab
 
 
 func _dex_grid() -> GridContainer:
@@ -2080,6 +2682,10 @@ func _arm_evolved_settle(token: Control, family: String, tier: int, species: Str
 func _play_merge_pop(node: Control) -> void:
 	var face := node.find_child("Capsule", true, false)
 	if face != null and face.has_method("has_merge") and bool(face.call("has_merge")):
+		# The sheet is the pop. A second scale tween on those frames is the jank.
+		node.scale = Vector2.ONE
+		if face is CanvasItem:
+			(face as CanvasItem).scale = Vector2.ONE
 		face.call("play_merge")
 		return
 	node.scale = Vector2(0.62, 0.62)
@@ -2139,20 +2745,23 @@ func _on_tick() -> void:
 			Game.finish_combat()
 
 
-func _tease_row() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.add_child(_tease("Reserve Park — soon", "ReservePark"))
-	row.add_child(_tease("Season Trail — soon", "SeasonTrail"))
-	return row
+func _tease_row() -> CenterContainer:
+	var park := _tease("Reserve Park — soon", "ReservePark")
+	var trail := _tease("Season Trail — soon", "SeasonTrail")
+	var hold := _center_row([park, trail], 12)
+	hold.get_child(0).name = "TeaseRow"
+	return hold
 
 
 func _tease(text: String, node_name: String) -> Button:
-	var b := _btn(text, Vector2(280, 42))
+	var b := _btn(text, Vector2(200, 34))
 	b.name = node_name
 	b.disabled = true
 	b.tooltip_text = "Tease only — not on the Meadow Circuit."
-	b.modulate = Color(1, 1, 1, 0.55)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	b.modulate = Color(0.78, 0.76, 0.72, 0.7)
 	return b
 
 

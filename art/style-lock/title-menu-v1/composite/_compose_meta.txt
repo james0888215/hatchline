@@ -1,0 +1,5 @@
+sky: edermunizz skyDay01 (warmed cream)
+clouds: garzett pixel clouds (cream-tinted, sparse)
+far_mid_near: vista downs @3x NN→1280, mint/sage grade
+paper: PaperAlbedo soft-light ~10%
+flowers: skipped (keep button zone clean)

@@ -15,8 +15,8 @@ const STARTER_MARKS := {
 const STARTER_ROOT := "res://art/starters"
 # Dex chips pass 40. Board slots pass 46, combat and shop pass 64.
 const STARTER_SHEET_64_MIN := 44.0
-const STARTER_IDLE_FRAMES := 4
-const STARTER_MERGE_FRAMES := 5
+const STARTER_IDLE_FRAMES := 6
+const STARTER_MERGE_FRAMES := 6
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family
@@ -400,6 +400,7 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false, ma
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		face.call("setup", px, pack["static"], pack["idle"], pack["merge"])
+		face.pivot_offset = Vector2(w * 0.5, h)
 	elif tex != null:
 		rect.texture = _filtered(tex, int(w), int(h))
 	rect.custom_minimum_size = Vector2(w, h)
