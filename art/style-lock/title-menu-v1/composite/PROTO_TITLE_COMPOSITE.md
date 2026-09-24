@@ -2,7 +2,7 @@
 
 **Cut:** title / start menu polish — **Assets shortlist composite** (no gen, no Art muddy wash).  
 **Canvas:** 1280×800  
-**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), buttons mid-lower (~58% from top), big calm sky, layered world. **James locked A pack stack + raised menu 2026-09-24.**
+**Quality bar:** Stardew / Terraria / Great Hatch refs — logo HIGH (~7–12% from top), buttons in the lower third (~70% from top), big calm sky, layered world. Pack stack A is the default.
 
 **Default background** = **pack stack** (`title-composite-pack-stack.png` + `layers/`).  
 Art-drawn Stardew meadow B (`../bg-title-texture-B-meadow-1280x800.png`) is **fallback only**.  
@@ -57,7 +57,7 @@ Source candidates (do not redistribute raw packs beyond project):
 |---------|-----------|
 | Logo | Centered, upper sky third (~7–12% from top). Calm sky behind. |
 | Negative space | Open sky between logo and buttons (mid band clear). |
-| Buttons | Stacked **mid-lower** (~**58%** from top), raised from prior 70% per James 2026-09-24. Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Keep the calm sky gap under the logo; not full mid-screen over hills. |
+| Buttons | Lower third (~**70%** from top). Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Calm sky stays between the logo and the pills. |
 | Version | Tiny bottom-right: `v0.playtest-1` |
 
 Button chrome (match mock): fill `#FAF6EE`, outline `#2C2A28` (~4px), label `#2C2A28`, ~300×54 pills, ~18px gap.
@@ -102,14 +102,14 @@ Do not redistribute source packs as stand-alone asset products.
 **Cons:** Flat (no parallax layers); denser flowers near button band.  
 If chosen: wire as single TextureRect under chrome; skip `layers/` parallax. Still CC0.
 
-**Recommendation:** James locked **A pack stack** with raised menu (2026-09-24). Ship it as default (parallax + Proto drift); keep painted alt as fallback/alt only on sheet 19, not James pick.
+**Recommendation:** Ship pack stack A as the default (parallax + cloud drift). Painted alt stays the flip option, not the default.
 
 ---
 
 ## 7) Checklist
 
 - [ ] Load `layers/sky → clouds → far → mid → near` (+ optional paper)
-- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills mid-lower (~58%, raised per James 2026-09-24)
+- [ ] Wire `wordmark-hatchline-trio-*` high (~7–12% from top); cream pills in the lower third (~70% from top)
 - [ ] Cloud drift 8–16px / 12–20s; button hover 1.03
 - [ ] Credit **edermunizz** (sky); list CC0 (VISTA, paper, heartpunch if used)
 - [ ] Art-drawn B meadow = fallback only

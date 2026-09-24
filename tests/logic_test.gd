@@ -1711,7 +1711,7 @@ func _title_menu_err(main: Node) -> String:
 		for nav_btn in [play, dex, options]:
 			var top: float = nav_btn.get_global_rect().position.y / view_h
 			if absf(top - band) > 0.04:
-				return "title buttons are not on the raised band"
+				return "title buttons are not in the lower third"
 		var logo := main.find_child("TitleWordmark", true, false) as Control
 		if logo != null and logo.size.y > 1.0:
 			var word_top := logo.get_global_rect().position.y / view_h
