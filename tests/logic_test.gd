@@ -1742,14 +1742,20 @@ func _title_menu_err(main: Node) -> String:
 		return "title nav weights differ"
 	if play.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
 		return "play button stretches"
+	var nav := main.find_child("TitleNav", true, false)
+	if nav == null or not (nav is VBoxContainer):
+		return "title nav is not a vertical stack"
 	var view_h := play.get_viewport_rect().size.y
 	if view_h > 1.0 and play.size.y > 1.0:
 		var ui = load("res://scripts/main.gd")
 		var band := float(ui.TITLE_NAV_ANCHOR)
-		for nav_btn in [play, dex, options]:
-			var top: float = nav_btn.get_global_rect().position.y / view_h
-			if absf(top - band) > 0.04:
-				return "title pills are not at the raised lock"
+		var play_y := play.get_global_rect().position.y
+		var dex_y := dex.get_global_rect().position.y
+		var options_y := options.get_global_rect().position.y
+		if play_y >= dex_y or dex_y >= options_y:
+			return "title nav is not stacked vertically"
+		if absf(play_y / view_h - band) > 0.04:
+			return "title pills are not at the raised lock"
 		var logo := main.find_child("TitleWordmark", true, false) as Control
 		if logo != null and logo.size.y > 1.0:
 			var word_top := logo.get_global_rect().position.y / view_h
@@ -1896,10 +1902,45 @@ func _title_stage_err(main: Node) -> String:
 	var paper := main.find_child("TitlePaper", true, false) as CanvasItem
 	if paper.modulate.a < 0.08 or paper.modulate.a > 0.12:
 		return "paper softlight is not a light veil"
+	var plate_err := _opaque_plate_err(main)
+	if plate_err != "":
+		return plate_err
+	var credit := main.find_child("SkyCredit", true, false) as Label
+	if credit == null or "edermunizz" not in credit.text.to_lower():
+		return "sky credit missing"
 	var sky_art := main.find_child("TitleSkyArt", true, false) as TextureRect
 	if sky_art == null or sky_art.texture == null or "layers/sky" not in str(sky_art.texture.resource_path):
 		return "sky layer missing"
 	return ""
+
+
+func _opaque_plate_err(main: Node) -> String:
+	var sky := main.find_child("TitleSky", true, false) as CanvasItem
+	if sky == null:
+		return "sky layer missing"
+	var sky_z := _canvas_z(sky)
+	for node in main.find_children("*", "ColorRect", true, false):
+		var rect := node as ColorRect
+		if rect.color.a < 0.5:
+			continue
+		var rect_h := rect.get_global_rect().size.y
+		var view_h := rect.get_viewport_rect().size.y
+		if view_h <= 1.0 or rect_h < view_h * 0.9:
+			continue
+		var z := _canvas_z(rect)
+		if z > sky_z and z < 0:
+			return "opaque plate covers the pack hills"
+	return ""
+
+
+func _canvas_z(node: CanvasItem) -> int:
+	var z := node.z_index
+	if not node.z_as_relative:
+		return z
+	var parent := node.get_parent()
+	if parent is CanvasItem:
+		return z + _canvas_z(parent)
+	return z
 
 
 func _text_has(node: Node, needle: String) -> bool:

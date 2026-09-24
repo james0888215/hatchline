@@ -57,7 +57,7 @@ Source candidates (do not redistribute raw packs beyond project):
 |---------|-----------|
 | Logo | Centered, upper sky third (~7–12% from top). Calm sky behind. |
 | Negative space | Open sky between logo and buttons (mid band clear). |
-| Buttons | Raised (~**58%** from top). Cream pills, thick charcoal outline, dark charcoal labels: Play / Hatch-dex / Options. Calm sky stays between the logo and the pills. |
+| Buttons | Vertical stack. First cream pill ~**58%** from the top (Play, then Hatch-dex, then Options). Thick charcoal outline, dark charcoal labels. Calm sky stays between the logo and the first pill. |
 | Version | Tiny bottom-right: `v0.playtest-1` |
 
 Button chrome (match mock): fill `#FAF6EE`, outline `#2C2A28` (~4px), label `#2C2A28`, ~300×54 pills, ~18px gap.

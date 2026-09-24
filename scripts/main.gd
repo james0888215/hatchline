@@ -15,6 +15,8 @@ const TITLE_BG_CHOICE := "pack"
 const TITLE_LOGO_PX := 512
 const TITLE_LOGO_ANCHOR := 0.09
 const TITLE_NAV_ANCHOR := 0.58
+# First pill top stays at TITLE_NAV_ANCHOR. The stack is 3×54 plus two 18px gaps.
+const TITLE_NAV_BAND := 198.0
 const TITLE_HOVER_SCALE := 1.03
 const TITLE_HOVER_SEC := 0.15
 const PICK_HEADER_ANCHOR := 0.10
@@ -98,7 +100,9 @@ func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.name = "Paper"
 	bg.color = CREAM
-	bg.z_index = MEADOW.Z_BEHIND - 1
+	# Behind the meadow wash (z -8) and the whole pack stack (sky is z -20).
+	# A plate at z -9 sat on top of the hills and flattened the title to cream.
+	bg.z_index = -40
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -359,20 +363,26 @@ func _build_title_menu(page: VBoxContainer) -> void:
 	dex.pressed.connect(_open_dex)
 	var options := _title_pill("Options", "OptionsButton")
 	options.pressed.connect(_open_options)
-	var nav := _center_row([play, dex, options], 18)
+	var nav := VBoxContainer.new()
 	nav.name = "TitleNav"
-	_pin_band(nav, TITLE_NAV_ANCHOR, 54.0)
+	nav.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav.add_theme_constant_override("separation", 18)
+	nav.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	nav.add_child(play)
+	nav.add_child(dex)
+	nav.add_child(options)
+	_pin_band(nav, TITLE_NAV_ANCHOR, TITLE_NAV_BAND)
 	stage.add_child(nav)
 	var later := _centered_lbl("Later circuits", 13, MUTED)
 	later.name = "LaterCircuits"
 	_pin_band(later, TITLE_NAV_ANCHOR, 22.0)
-	later.offset_top = 62.0
-	later.offset_bottom = 84.0
+	later.offset_top = TITLE_NAV_BAND + 8.0
+	later.offset_bottom = TITLE_NAV_BAND + 30.0
 	stage.add_child(later)
 	var teases := _tease_row()
 	_pin_band(teases, TITLE_NAV_ANCHOR, 34.0)
-	teases.offset_top = 88.0
-	teases.offset_bottom = 122.0
+	teases.offset_top = TITLE_NAV_BAND + 34.0
+	teases.offset_bottom = TITLE_NAV_BAND + 68.0
 	stage.add_child(teases)
 	var version := _lbl(TITLE_VERSION, 12, Color(TITLE_CHARCOAL, 0.72))
 	version.name = "TitleVersion"
@@ -650,6 +660,24 @@ func _add_pack_stack() -> void:
 	var paper := _pack_layer("TitlePaper", "paper-softlight.png", -8, 0.0, 0.0)
 	paper.modulate = Color(1, 1, 1, PAPER_SOFT_ALPHA)
 	host.add_child(paper)
+	host.add_child(_sky_credit())
+
+
+func _sky_credit() -> Label:
+	var credit := _lbl("Sky — edermunizz", 12, Color(TITLE_CHARCOAL, 0.62))
+	credit.name = "SkyCredit"
+	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	credit.anchor_left = 0.0
+	credit.anchor_right = 0.0
+	credit.anchor_top = 1.0
+	credit.anchor_bottom = 1.0
+	credit.offset_left = 16.0
+	credit.offset_right = 240.0
+	credit.offset_top = -28.0
+	credit.offset_bottom = -10.0
+	credit.grow_horizontal = Control.GROW_DIRECTION_END
+	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	return credit
 
 
 func _pack_layer_path(file_name: String) -> String:
