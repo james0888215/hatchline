@@ -436,6 +436,23 @@ func _test_combat_floats() -> String:
 		return "elite clarity tokens missing"
 	if tokens.clarity_texture("sprig") == null or tokens.clarity_texture("driftkin") == null:
 		return "sprig or driftkin token missing"
+	if tokens.species_mark("leaf", "sprout", 1) == tokens.species_mark("leaf", "bud", 1):
+		return "budmite shares sproutling"
+	if tokens.species_mark("leaf", "dew", 1) == "" or tokens.species_mark("leaf", "dew", 1) == tokens.species_mark("leaf", "sprout", 1):
+		return "dewcap shares sproutling"
+	if tokens.species_mark("ember", "wick", 1) == tokens.species_mark("ember", "spark", 1):
+		return "wicklet shares sparkpup"
+	if tokens.species_mark("ember", "cinder", 1) == tokens.species_mark("ember", "spark", 1):
+		return "cinderkit shares sparkpup"
+	if tokens.species_mark("puff", "nimbus", 1) == tokens.species_mark("puff", "cotton", 1):
+		return "nimbusling shares cottonwisp"
+	if tokens.species_mark("puff", "fluff", 1) == tokens.species_mark("puff", "cotton", 1):
+		return "fluffball shares cottonwisp"
+	for mark in ["sproutling", "budmite", "dewcap", "wicklet", "cinderkit", "nimbusling", "fluffball", "thornbud", "stormpillow"]:
+		if tokens.clarity_texture(mark) == null:
+			return "shop line token missing " + mark
+	if tokens.species_mark("leaf", "bud", 2) != "mossguard" or tokens.species_mark("puff", "cotton", 3) != "stormpillow":
+		return "line did not continue past T1"
 	return ""
 
 
