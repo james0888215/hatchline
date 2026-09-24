@@ -15,8 +15,8 @@ const STARTER_MARKS := {
 const STARTER_ROOT := "res://art/starters"
 # Dex chips pass 40. Board slots pass 46, combat and shop pass 64.
 const STARTER_SHEET_64_MIN := 44.0
-const STARTER_IDLE_FRAMES := 4
-const STARTER_MERGE_FRAMES := 5
+const STARTER_IDLE_FRAMES := 6
+const STARTER_MERGE_FRAMES := 6
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family

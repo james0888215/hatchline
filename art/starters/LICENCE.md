@@ -1,4 +1,4 @@
-# Licence — starters-v1
+# Licence — starters-v1.1-subtle
 
 ## Body motion / pack source
 - **Pack:** Blob/Slime collection (`blobs.png`)

@@ -499,26 +499,26 @@ func _test_combat_floats() -> String:
 	if cap.custom_minimum_size != cap.custom_minimum_size.round():
 		return "fight token is off a pixel"
 	var face_script = load("res://scripts/starter_face.gd")
-	if float(face_script.IDLE_FPS) != 8.0:
-		return "idle clock is not 8 fps"
+	if absf(float(face_script.IDLE_FPS) - 5.0) > 0.01:
+		return "idle is not 5 fps"
 	var holds = face_script.IDLE_HOLD_STEPS
-	if holds.size() != 4:
-		return "idle hold is not the 4-frame sheet"
-	if float(holds[1]) < 2.0 or float(holds[2]) < 2.0:
-		return "idle extremes are not held"
+	if holds.size() != 6:
+		return "idle hold is not the 6-frame sheet"
 	var span := 0.0
 	for step in holds:
 		span += float(step)
 	var cycle := span / float(face_script.IDLE_FPS)
 	var effective := float(holds.size()) / cycle
-	if effective < 4.0 or effective > 5.0:
-		return "idle is not 4-5 fps"
+	if effective < 4.9 or effective > 5.1:
+		return "idle is not a 5 fps loop"
 	if float(face_script.MERGE_FPS) < 8.0 or float(face_script.MERGE_FPS) > 10.0:
 		return "merge fps out of band"
 	if float(face_script.MERGE_SETTLE) < 0.05 or float(face_script.MERGE_SETTLE) > 0.08:
 		return "merge settle out of band"
-	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 4 or int(cap.get("merge_count")) != 5:
+	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 6 or int(cap.get("merge_count")) != 6:
 		return "sproutling board sheet"
+	if absf(cap.pivot_offset.x - cap.custom_minimum_size.x * 0.5) > 1.0 or absf(cap.pivot_offset.y - cap.custom_minimum_size.y) > 1.0:
+		return "starter pivot is not bottom-center"
 	var listed = tokens.make("ember", 1, 40.0, false, "sparkpup", "ranged")
 	if int(listed.get("sheet_px")) != 32:
 		return "sparkpup list should use 32"
@@ -1133,11 +1133,12 @@ func _test_starter_motion() -> String:
 		return "idle stacked a scale tween"
 	var buddy = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
 	root.add_child(buddy)
-	await create_timer(0.7).timeout
-	if int(board.get("frame_i")) == 0:
+	var before_frame := int(board.get("frame_i"))
+	await create_timer(0.3).timeout
+	if int(board.get("frame_i")) == before_frame:
 		board.queue_free()
 		buddy.queue_free()
-		return "idle hold never released the rest frame"
+		return "idle did not advance"
 	if int(board.get("frame_i")) != int(buddy.get("frame_i")):
 		board.queue_free()
 		buddy.queue_free()
@@ -1171,7 +1172,7 @@ func _test_starter_motion() -> String:
 		buddy.queue_free()
 		return "merge stacked a scale tween"
 	board.call("play_merge")
-	await create_timer(0.85).timeout
+	await create_timer(0.95).timeout
 	if str(board.get("mode")) != "idle":
 		board.queue_free()
 		holder.queue_free()
@@ -1188,7 +1189,7 @@ func _test_starter_motion() -> String:
 	var sz: Vector2 = evolved.custom_minimum_size
 	evolved.call("arm_settle", tokens.sheet_frame(cap_tex, int(sz.x), int(sz.y)))
 	evolved.call("play_merge")
-	await create_timer(0.7).timeout
+	await create_timer(0.95).timeout
 	if str(evolved.get("mode")) != "still":
 		board.queue_free()
 		holder.queue_free()
@@ -1242,7 +1243,7 @@ func _test_starter_merge() -> String:
 	if page_wash == null or int(page_wash.z_index) >= 0:
 		main.queue_free()
 		return "merge put the page wash in front"
-	await create_timer(0.7).timeout
+	await create_timer(0.95).timeout
 	if not is_instance_valid(face) or str(face.get("mode")) != "still":
 		main.queue_free()
 		return "merge did not settle onto the evolved capsule"

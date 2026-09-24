@@ -1,3 +1,9 @@
+# Note — starters-v1.1-subtle
+
+This drop is **motion-only** vs soft-patched `starters-v1`. Static look inherits the soft patch below; idle/merge were re-exported under `MOTION_BRIEF_v1`. See README.md + MOTION.md.
+
+---
+
 # Hatch Review soft patch — starters-v1
 
 Applied 2026-09-24 13:01 IST. Non-blocking asset-only patch; the style lock was not reopened or edited.

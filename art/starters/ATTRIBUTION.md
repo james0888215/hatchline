@@ -1,4 +1,4 @@
-# Attribution — starters-v1
+# Attribution — starters-v1.1-subtle
 
 ## Anêmonônima — Blob/Slime collection (CC0)
 - Source: https://opengameart.org/content/blobslime-collection
@@ -12,4 +12,4 @@
 - Skip: Game-icons
 
 ## Kenney
-- Not used in starters-v1 composites.
+- Not used in starters-v1.1-subtle composites.

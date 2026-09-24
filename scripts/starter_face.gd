@@ -4,18 +4,15 @@ extends TextureRect
 # Idle loops on one shared clock. A combat squash or lunge holds the
 # current frame. A merge one-shot returns to idle, unless the triple
 # evolved into another species — that settles on the capsule.
-# The 4-frame sheet is still the punchy starters-v1 export. Playback
-# slows it until Assets re-exports the ≤4% stretch. No scale tween
+# Frames are starters-v1.1-subtle (6 idle, 6 merge). No scale tween
 # rides on top of those frames.
 
-const IDLE_FPS := 8.0
+const IDLE_FPS := 5.0
 const MERGE_FPS := 9.0
 const MERGE_SETTLE := 0.065
-# Steps of IDLE_FPS. Order is rest, stretch, squash, settle.
-# Extremes (stretch, squash) hold two ticks. Neutrals hold two as well,
-# so the loop eases instead of snapping. Eight FPS with those holds
-# shows the sheet at 4 FPS.
-const IDLE_HOLD_STEPS: Array = [2.0, 2.0, 2.0, 2.0]
+# One tick each: neutral, micro-up, peak-up, neutral, micro-down, peak-down.
+# At 5 FPS the sheet loops once every 1.2s. Peaks are already ≤4% in the art.
+const IDLE_HOLD_STEPS: Array = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 static var _clock: float = 0.0
 static var _clock_frame: int = -1
@@ -47,7 +44,7 @@ func setup(px: int, static_tex: Texture2D, idle_frames: Array, merge_frames: Arr
 
 
 func has_merge() -> bool:
-	return _merge.size() >= 5
+	return _merge.size() >= 6
 
 
 func arm_settle(tex: Texture2D) -> void:
