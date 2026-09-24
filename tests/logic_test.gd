@@ -455,6 +455,13 @@ func _test_combat_floats() -> String:
 			return "shop line token missing " + mark
 	if tokens.species_mark("leaf", "bud", 2) != "mossguard" or tokens.species_mark("puff", "cotton", 3) != "stormpillow":
 		return "line did not continue past T1"
+	var cap: TextureRect = tokens.make("leaf", 1, 64.0, false, "sproutling", "melee")
+	if cap.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
+		return "fight token filter"
+	if cap.texture == null or not cap.texture.get_image().has_mipmaps():
+		return "fight token mipmaps"
+	if cap.custom_minimum_size != cap.custom_minimum_size.round():
+		return "fight token is off a pixel"
 	return ""
 
 

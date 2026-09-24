@@ -43,6 +43,7 @@ var punch_label: Label
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_apply_theme()
 	var bg := ColorRect.new()
 	bg.color = CREAM
@@ -1586,6 +1587,7 @@ func _juice_wrap(token: Control) -> Control:
 	juice.size = sz
 	juice.pivot_offset = sz * 0.5
 	juice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	juice.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	token.position = Vector2.ZERO
 	juice.add_child(token)
 	var flash := ColorRect.new()
@@ -1689,6 +1691,7 @@ func _pop_wrap(token: Control) -> Control:
 	pop.size = token.custom_minimum_size
 	pop.pivot_offset = pop.size * 0.5
 	pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	token.position = Vector2.ZERO
 	pop.add_child(token)
 	return pop
