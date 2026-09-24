@@ -6,6 +6,15 @@ const LINKS := preload("res://scripts/buddy_overlay.gd")
 const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
+# James locked the title mark as Sproutling, Sparkpup, and Cottonwisp
+# centered above the Hatchline wordmark. Art's title-menu-v1 pack is not
+# in the tree yet. Drop it on these paths (one file, or trio + wordmark).
+# Do not point this at wordmark-hatchline-icon-* — that side icon is not the lock.
+const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
+const TITLE_LOCK := TITLE_ART_DIR + "/title-lock.png"
+const TITLE_TRIO := TITLE_ART_DIR + "/title-trio.png"
+const TITLE_WORDMARK := TITLE_ART_DIR + "/title-wordmark.png"
+
 const CREAM := Color("f6f1e7")
 const INK := Color("243042")
 const MUTED := Color("8a847a")
@@ -29,6 +38,8 @@ var tick: Timer
 var flash_timer: Timer
 var _rebuild_queued := false
 var dex_open := false
+var options_open := false
+var pick_open := false
 var _ending := false
 var log_open := false
 var punch_uid := -1
@@ -108,6 +119,10 @@ func _queue_rebuild() -> void:
 
 func _rebuild() -> void:
 	_rebuild_queued = false
+	if Game.phase != "start":
+		pick_open = false
+		dex_open = false
+		options_open = false
 	if Game.phase == "combat" and Game.combat != null and Game.combat.over:
 		Game.finish_combat()
 		return
@@ -272,49 +287,273 @@ func _clear_flash() -> void:
 
 
 func _build_start(page: VBoxContainer) -> void:
-	page.add_child(_lbl("HATCHLINE", 40, INK))
-	page.add_child(_lbl("Meadow Circuit", 18, MUTED))
-	page.add_child(_lbl("Three of a kind evolve. Same-family neighbours share a bonus.", 16, INK))
-	var dex_n: int = Game.profile.discovered.size()
-	var dex_line := "Hatch-dex %d/%d    ·    runs %d" % [dex_n, Game.critter_order.size(), int(Game.profile.runs)]
-	page.add_child(_lbl(dex_line, 14, MUTED))
-	if dex_open:
-		page.add_child(_dex_grid())
-		var back := _btn("Back", Vector2(160, 40))
-		back.name = "BackButton"
-		back.pressed.connect(func() -> void:
-			dex_open = false
-			_queue_rebuild()
-		)
-		page.add_child(back)
+	if pick_open:
+		page.name = "StarterPick"
+		_build_starter_pick(page)
+	elif dex_open:
+		page.name = "DexScreen"
+		_build_dex_screen(page)
+	elif options_open:
+		page.name = "OptionsScreen"
+		_build_options_screen(page)
 	else:
-		var band = MEADOW.new()
-		band.name = "StarterMeadow"
-		band.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		band.custom_minimum_size = Vector2(0, 280)
-		page.add_child(band)
-		var row := HBoxContainer.new()
-		row.name = "StarterRow"
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 28)
-		row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		row.offset_left = 8
-		row.offset_right = -8
-		row.offset_top = -268
-		row.offset_bottom = -6
-		band.add_child(row)
-		_lift_over_wash(row)
-		for id in Game.starter_ids():
-			row.add_child(_starter_card(str(id)))
-		var dex_btn := _btn("Hatch-dex", Vector2(160, 36))
-		dex_btn.name = "DexButton"
-		dex_btn.pressed.connect(func() -> void:
-			dex_open = true
-			_queue_rebuild()
-		)
-		page.add_child(dex_btn)
+		page.name = "TitleMenu"
+		_build_title_menu(page)
+
+
+func _build_title_menu(page: VBoxContainer) -> void:
+	page.add_child(_v_spacer(true, 12.0))
+	page.add_child(_title_mark())
+	page.add_child(_dex_status())
+	page.add_child(_v_spacer(false, 18.0))
+	var play := _menu_btn("Play", "PlayButton", true)
+	play.pressed.connect(_open_starter_pick)
+	var dex := _menu_btn("Hatch-dex", "DexButton", false)
+	dex.pressed.connect(_open_dex)
+	var options := _menu_btn("Options", "OptionsButton", false)
+	options.pressed.connect(_open_options)
+	var nav := _center_row([play, dex, options], 16)
+	nav.name = "TitleNav"
+	page.add_child(nav)
+	page.add_child(_v_spacer(true, 12.0))
+	var later := _centered_lbl("Later circuits", 13, MUTED)
+	later.name = "LaterCircuits"
+	page.add_child(later)
 	page.add_child(_tease_row())
+	page.add_child(_v_spacer(false, 8.0))
+
+
+func _build_starter_pick(page: VBoxContainer) -> void:
+	var prompt := _centered_lbl("Choose a starter", 28, INK)
+	prompt.name = "StarterPrompt"
+	page.add_child(prompt)
+	var teach := _centered_lbl("Three of a kind evolve. Same-family neighbours share a bonus.", 16, INK)
+	teach.name = "StarterTeach"
+	page.add_child(teach)
+	var band = MEADOW.new()
+	band.name = "StarterMeadow"
+	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	band.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	band.custom_minimum_size = Vector2(0, 280)
+	page.add_child(band)
+	var row := HBoxContainer.new()
+	row.name = "StarterRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 28)
+	row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	row.offset_left = 8
+	row.offset_right = -8
+	row.offset_top = -268
+	row.offset_bottom = -6
+	band.add_child(row)
+	_lift_over_wash(row)
+	for id in Game.starter_ids():
+		row.add_child(_starter_card(str(id)))
+	page.add_child(_center_row([_back_btn()], 0))
+
+
+func _build_dex_screen(page: VBoxContainer) -> void:
+	var head := _centered_lbl("Hatch-dex", 28, INK)
+	head.name = "DexHeading"
+	page.add_child(head)
+	page.add_child(_dex_status())
+	page.add_child(_dex_grid())
+	page.add_child(_center_row([_back_btn()], 0))
+
+
+func _build_options_screen(page: VBoxContainer) -> void:
+	var head := _centered_lbl("Options", 28, INK)
+	head.name = "OptionsHeading"
+	page.add_child(head)
+	var note := _centered_lbl("Placeholders — not wired yet.", 14, MUTED)
+	note.name = "OptionsNote"
+	page.add_child(note)
+	page.add_child(_option_row("Volume", "OptionsVolume", true))
+	page.add_child(_option_row("Fullscreen", "OptionsFullscreen", false))
+	page.add_child(_v_spacer(true, 8.0))
+	page.add_child(_center_row([_back_btn()], 0))
+
+
+func _show_title_menu() -> void:
+	pick_open = false
+	dex_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_starter_pick() -> void:
+	pick_open = true
+	dex_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_dex() -> void:
+	dex_open = true
+	pick_open = false
+	options_open = false
+	_queue_rebuild()
+
+
+func _open_options() -> void:
+	options_open = true
+	pick_open = false
+	dex_open = false
+	_queue_rebuild()
+
+
+func _title_mark() -> Control:
+	var box := VBoxContainer.new()
+	box.name = "TitleMark"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 4)
+	var lock := _title_tex(TITLE_LOCK)
+	if lock != null:
+		box.add_child(_title_rect("TitleLock", lock, "Art lock: trio centered above the Hatchline wordmark."))
+	else:
+		# Empty until title-menu-v1 lands. Trio slot sits above the wordmark slot.
+		box.add_child(_title_rect("TitleTrio", _title_tex(TITLE_TRIO), "Art hook: Sproutling, Sparkpup, and Cottonwisp above the wordmark."))
+		var word := _title_tex(TITLE_WORDMARK)
+		box.add_child(_title_rect("TitleWordmark", word, "Art hook: Hatchline wordmark only. Not the side-icon lock."))
+		if word == null:
+			var placeholder := _centered_lbl("HATCHLINE", 48, INK)
+			placeholder.name = "TitlePlaceholder"
+			box.add_child(placeholder)
+	var sub := _centered_lbl("Meadow Circuit", 18, MUTED)
+	sub.name = "TitleSubtitle"
+	box.add_child(sub)
+	return box
+
+
+func _title_tex(path: String) -> Texture2D:
+	if "wordmark-hatchline-icon" in path:
+		return null
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+
+func _title_rect(node_name: String, tex: Texture2D, tip: String) -> TextureRect:
+	var hook := TextureRect.new()
+	hook.name = node_name
+	hook.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hook.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hook.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hook.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	hook.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	hook.tooltip_text = tip
+	hook.set_meta("art_hook", node_name)
+	hook.texture = tex
+	if tex == null:
+		hook.custom_minimum_size = Vector2.ZERO
+		return hook
+	var h := 96.0
+	if node_name == "TitleTrio":
+		h = 132.0
+	elif node_name == "TitleLock":
+		h = 180.0
+	var w := h
+	if tex.get_height() > 0:
+		w = h * float(tex.get_width()) / float(tex.get_height())
+	hook.custom_minimum_size = Vector2(w, h)
+	return hook
+
+
+func _dex_status() -> Label:
+	var dex_n: int = Game.profile.discovered.size()
+	var line := _centered_lbl("Hatch-dex %d/%d    ·    runs %d" % [dex_n, Game.critter_order.size(), int(Game.profile.runs)], 14, MUTED)
+	line.name = "DexStatus"
+	return line
+
+
+func _menu_btn(text: String, node_name: String, primary: bool) -> Button:
+	var b := _btn(text, Vector2(200, 52))
+	b.name = node_name
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.clip_text = false
+	b.add_theme_font_size_override("font_size", 18)
+	if primary:
+		var normal := _style(Color("f6d56b"), INK, 3)
+		var hover := _style(Color("ffe7a3"), INK, 3)
+		var pressed := _style(Color("e6c15a"), INK, 3)
+		b.add_theme_stylebox_override("normal", normal)
+		b.add_theme_stylebox_override("hover", hover)
+		b.add_theme_stylebox_override("pressed", pressed)
+		b.add_theme_stylebox_override("focus", normal)
+	return b
+
+
+func _back_btn() -> Button:
+	var back := _menu_btn("Back", "BackButton", false)
+	back.pressed.connect(_show_title_menu)
+	return back
+
+
+func _option_row(label: String, node_name: String, volume: bool) -> CenterContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lab := _lbl(label, 16, MUTED)
+	lab.custom_minimum_size = Vector2(120, 0)
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(lab)
+	if volume:
+		var slider := HSlider.new()
+		slider.name = node_name
+		slider.min_value = 0
+		slider.max_value = 100
+		slider.value = 80
+		slider.editable = false
+		slider.custom_minimum_size = Vector2(220, 28)
+		slider.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		slider.tooltip_text = "Volume placeholder — not wired yet."
+		slider.modulate = Color(1, 1, 1, 0.55)
+		row.add_child(slider)
+	else:
+		var toggle := CheckButton.new()
+		toggle.name = node_name
+		toggle.text = "Off"
+		toggle.disabled = true
+		toggle.button_pressed = false
+		toggle.tooltip_text = "Fullscreen placeholder — not wired yet."
+		toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		toggle.modulate = Color(1, 1, 1, 0.55)
+		row.add_child(toggle)
+	return _center_row([row], 0)
+
+
+func _center_row(children: Array, separation: int) -> CenterContainer:
+	var hold := CenterContainer.new()
+	hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", separation)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in children:
+		row.add_child(child)
+	hold.add_child(row)
+	return hold
+
+
+func _v_spacer(expand: bool, min_h: float) -> Control:
+	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if expand:
+		gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if min_h > 0.0:
+		gap.custom_minimum_size = Vector2(0, min_h)
+	return gap
+
+
+func _centered_lbl(text: String, size: int, color: Color) -> Label:
+	var lab := _lbl(text, size, color)
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return lab
 
 
 func _starter_card(id: String) -> Button:
@@ -2139,20 +2378,23 @@ func _on_tick() -> void:
 			Game.finish_combat()
 
 
-func _tease_row() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.add_child(_tease("Reserve Park — soon", "ReservePark"))
-	row.add_child(_tease("Season Trail — soon", "SeasonTrail"))
-	return row
+func _tease_row() -> CenterContainer:
+	var park := _tease("Reserve Park — soon", "ReservePark")
+	var trail := _tease("Season Trail — soon", "SeasonTrail")
+	var hold := _center_row([park, trail], 12)
+	hold.get_child(0).name = "TeaseRow"
+	return hold
 
 
 func _tease(text: String, node_name: String) -> Button:
-	var b := _btn(text, Vector2(280, 42))
+	var b := _btn(text, Vector2(200, 34))
 	b.name = node_name
 	b.disabled = true
 	b.tooltip_text = "Tease only — not on the Meadow Circuit."
-	b.modulate = Color(1, 1, 1, 0.55)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	b.modulate = Color(0.78, 0.76, 0.72, 0.7)
 	return b
 
 

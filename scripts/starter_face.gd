@@ -7,6 +7,11 @@ extends TextureRect
 
 const IDLE_FPS := 7.0
 const MERGE_FPS := 11.0
+# Steps of IDLE_FPS for the four idle frames: rest, stretch, squash, settle.
+# Even 7 FPS on that sheet strobes. Rest and settle dwell; stretch eases in
+# and the squash sits a little longer. Still four frames — in-betweens are
+# a Hatch Assets ask, not extra frames invented here.
+const IDLE_HOLD_STEPS: Array = [4.0, 2.0, 2.6, 3.2]
 
 var sheet_px: int = 64
 var mode: String = "idle"
@@ -61,27 +66,46 @@ func _process(delta: float) -> void:
 	var frames: Array = _merge if mode == "merge" else _idle
 	if frames.is_empty():
 		return
-	var fps := MERGE_FPS if mode == "merge" else IDLE_FPS
-	if fps <= 0.0:
+	if mode == "idle":
+		_advance_idle(frames, delta)
+		return
+	if MERGE_FPS <= 0.0:
 		return
 	_accum += delta
-	var step := 1.0 / fps
+	var step := 1.0 / MERGE_FPS
 	while _accum >= step:
 		_accum -= step
-		if mode == "idle" and not _primed:
-			_primed = true
-			frame_i = 0
-			texture = frames[0]
-			continue
-		if mode == "merge":
-			frame_i += 1
-			if frame_i >= frames.size():
-				_finish_merge()
-				return
-			texture = frames[frame_i]
-		else:
-			frame_i = (frame_i + 1) % frames.size()
-			texture = frames[frame_i]
+		frame_i += 1
+		if frame_i >= frames.size():
+			_finish_merge()
+			return
+		texture = frames[frame_i]
+
+
+func _advance_idle(frames: Array, delta: float) -> void:
+	if not _primed:
+		_primed = true
+		frame_i = 0
+		_accum = 0.0
+		texture = frames[0]
+		return
+	_accum += delta
+	var guard := 0
+	while guard < frames.size():
+		var hold := _idle_hold(frame_i)
+		if hold <= 0.0 or _accum < hold:
+			return
+		_accum -= hold
+		frame_i = (frame_i + 1) % frames.size()
+		texture = frames[frame_i]
+		guard += 1
+
+
+func _idle_hold(index: int) -> float:
+	var step := 1.0 / IDLE_FPS
+	if index < 0 or index >= IDLE_HOLD_STEPS.size():
+		return step
+	return step * float(IDLE_HOLD_STEPS[index])
 
 
 func _finish_merge() -> void:

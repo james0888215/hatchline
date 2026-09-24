@@ -8,7 +8,8 @@ Critters on the board, bench, shop, and combat grid are flat capsule tokens from
 
 - [`art/style-lock/`](art/style-lock/) — locked reference: `STYLE_LOCK.md`, the mood board, Leaf / Ember / Puff silhouette sheets, and the combat mock.
 - [`art/tokens/`](art/tokens/) — one capsule per family and tier (`leaf_t1.png` … `puff_t3.png`), cut from those sheets. `beast_t1.png` is the plain rose pill from the combat mock, used for meadow enemies that are not Leaf, Ember, or Puff.
-- [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp only (soft-patched starters-v1). The board uses the 64px static sheet; tight lists use 32. They idle at 7 FPS and play a 5-frame merge one-shot when that line triples. Every other species stays a capsule.
+- [`art/starters/`](art/starters/) — Sproutling, Sparkpup, and Cottonwisp only (soft-patched starters-v1). The board uses the 64px static sheet; tight lists use 32. Idle is the same 4 frames with a longer hold on the rest poses, then a 5-frame merge one-shot when that line triples. Every other species stays a capsule.
+- Title mark — temporary wordmark-only (`HATCHLINE`) until Art drops title-menu-v1. The lock is the three starters centered above the wordmark, not the side-icon wordmark. Drop `art/style-lock/title-menu-v1/title-lock.png`, or `title-trio.png` above `title-wordmark.png`.
 
 `tools/extract_tokens.py` recuts the tokens if the sheets change. Body, face, and the single family mark stay on the sheet; tier is size plus that one silhouette add.
 
@@ -28,7 +29,7 @@ godot --headless --path . -s res://tests/logic_test.gd
 
 ## How to play
 
-1. Pick one of three tier-1 starters. The line under them is the whole tutorial: three of a kind evolve, and same-family neighbours help.
+1. The title menu is Play, Hatch-dex, and Options. Play opens the three tier-1 starters; Back returns to the title. The line under them is the whole tutorial: three of a kind evolve, and same-family neighbours help.
 2. **Sparring** is the teaching fight. Press Fight and watch the two boards. A melee critter lunges. A ranged critter spits a seed. The target gives a small pop, and the number floats on the cell. A kill still pops. Speed toggles between ×1 and ×2. During the fight the combat log stays folded until you open it. After the fight the full log stays on screen in a scroller. A starter in the right column wins. A ranged critter standing in Front, or a melee critter stuck in Back, can lose.
 3. The **Meadow Stall** opens next. Buy, Freeze, Reroll, and sell. A copy of something you already own is in the first slot.
 4. Two copies do nothing. They show **2/3**. The third copy evolves on the spot — the cell pops, and a one-line banner names the new tier.

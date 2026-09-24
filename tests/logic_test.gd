@@ -501,6 +501,18 @@ func _test_combat_floats() -> String:
 	var face_script = load("res://scripts/starter_face.gd")
 	if float(face_script.IDLE_FPS) < 6.0 or float(face_script.IDLE_FPS) > 8.0:
 		return "idle fps out of band"
+	var holds = face_script.IDLE_HOLD_STEPS
+	if holds.size() != 4:
+		return "idle hold is not the 4-frame sheet"
+	if float(holds[0]) <= float(holds[1]) or float(holds[3]) <= float(holds[1]):
+		return "idle does not hold the rest poses"
+	if float(holds[2]) <= float(holds[1]):
+		return "idle squash has no ease"
+	var span := 0.0
+	for step in holds:
+		span += float(step)
+	if span <= 4.0:
+		return "idle cycle is still even timing"
 	if float(face_script.MERGE_FPS) < 10.0 or float(face_script.MERGE_FPS) > 12.0:
 		return "merge fps out of band"
 	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 4 or int(cap.get("merge_count")) != 5:
@@ -1114,6 +1126,10 @@ func _test_starter_motion() -> String:
 	if str(board.get("mode")) != "idle" or board.texture == still:
 		board.queue_free()
 		return "idle did not leave the static frame"
+	await create_timer(0.7).timeout
+	if int(board.get("frame_i")) == 0:
+		board.queue_free()
+		return "idle hold never released the rest frame"
 	var holder := Control.new()
 	root.add_child(holder)
 	var held = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
@@ -1243,24 +1259,71 @@ func _test_ui() -> String:
 	await process_frame
 	await process_frame
 	if g.phase != "start":
-		return "retry did not return to starters"
-	var menu_wash: Node = main.find_child("StarterMeadow", true, false)
-	if menu_wash == null or int(menu_wash.z_index) >= 0:
-		return "menu wash should sit behind the starters"
-	var menu_under: Node = main.find_child("MenuWash", true, false)
-	if menu_under == null or int(menu_under.z_index) >= 0:
-		return "menu underlay should sit behind the page"
-	var menu_tex: Node = menu_under.find_child("WashUnderlay", true, false)
-	if menu_tex == null or not (menu_tex is TextureRect):
-		return "menu underlay texture missing"
-	if "wash-underlay-menu" not in str((menu_tex as TextureRect).texture.resource_path):
-		return "menu underlay is not the menu sheet"
-	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
-		var card: Node = main.find_child("Starter_%s" % starter_id, true, false)
-		if card == null:
-			return "missing starter " + starter_id
-	if main.find_child("Starter_budmite", true, false) != null:
-		return "budmite still on the starter row"
+		return "retry did not return to the title"
+	var title_err := _title_menu_err(main)
+	if title_err != "":
+		return title_err
+	var options: Node = main.find_child("OptionsButton", true, false)
+	options.pressed.emit()
+	await process_frame
+	await process_frame
+	var volume: Node = main.find_child("OptionsVolume", true, false)
+	var full: Node = main.find_child("OptionsFullscreen", true, false)
+	if volume == null or not (volume is HSlider) or (volume as HSlider).editable:
+		return "volume placeholder missing"
+	if full == null or not (full is BaseButton) or not (full as BaseButton).disabled:
+		return "fullscreen placeholder missing"
+	if main.find_child("StarterRow", true, false) != null:
+		return "options is showing starters"
+	var opt_back: Node = main.find_child("BackButton", true, false)
+	if opt_back == null:
+		return "options back missing"
+	opt_back.pressed.emit()
+	await process_frame
+	await process_frame
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "options back: " + title_err
+	var dex_btn: Node = main.find_child("DexButton", true, false)
+	dex_btn.pressed.emit()
+	await process_frame
+	await process_frame
+	if main.find_child("DexScreen", true, false) == null:
+		return "hatch-dex did not open"
+	if main.find_child("StarterRow", true, false) != null:
+		return "hatch-dex is showing starters"
+	var dex_back: Node = main.find_child("BackButton", true, false)
+	if dex_back == null:
+		return "dex back missing"
+	dex_back.pressed.emit()
+	await process_frame
+	await process_frame
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "dex back: " + title_err
+	var play: Node = main.find_child("PlayButton", true, false)
+	play.pressed.emit()
+	await process_frame
+	await process_frame
+	var pick_err := _starter_pick_err(main)
+	if pick_err != "":
+		return pick_err
+	var pick_back: Node = main.find_child("BackButton", true, false)
+	pick_back.pressed.emit()
+	await process_frame
+	await process_frame
+	if g.phase != "start":
+		return "back left the title phase"
+	title_err = _title_menu_err(main)
+	if title_err != "":
+		return "starter back: " + title_err
+	play = main.find_child("PlayButton", true, false)
+	play.pressed.emit()
+	await process_frame
+	await process_frame
+	pick_err = _starter_pick_err(main)
+	if pick_err != "":
+		return pick_err
 	if _text_has(main, "greybox"):
 		return "greybox subtitle still showing"
 	var sprout: Node = main.find_child("Starter_sproutling", true, false)
@@ -1576,6 +1639,93 @@ func _packed_stall(text: String) -> bool:
 	if "Interest" in text:
 		n += 1
 	return n > 1
+
+
+func _title_menu_err(main: Node) -> String:
+	if main.find_child("TitleMenu", true, false) == null:
+		return "title menu missing"
+	if main.find_child("StarterRow", true, false) != null or main.find_child("StarterMeadow", true, false) != null:
+		return "title is showing starters"
+	for starter_id in ["sproutling", "sparkpup", "cottonwisp", "budmite"]:
+		if main.find_child("Starter_%s" % starter_id, true, false) != null:
+			return "title is showing starter " + starter_id
+	var play := main.find_child("PlayButton", true, false) as BaseButton
+	var dex := main.find_child("DexButton", true, false) as BaseButton
+	var options := main.find_child("OptionsButton", true, false) as BaseButton
+	if play == null or dex == null or options == null:
+		return "title nav missing"
+	if play.custom_minimum_size != dex.custom_minimum_size or play.custom_minimum_size != options.custom_minimum_size:
+		return "title nav weights differ"
+	if play.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
+		return "play button stretches"
+	if dex.size_flags_horizontal != Control.SIZE_SHRINK_CENTER or options.size_flags_horizontal != Control.SIZE_SHRINK_CENTER:
+		return "title nav stretches"
+	var play_box := play.get_theme_stylebox("normal")
+	if not (play_box is StyleBoxFlat) or (play_box as StyleBoxFlat).bg_color.b > 0.7:
+		return "play is not the primary button"
+	var dex_box := dex.get_theme_stylebox("normal")
+	if dex_box is StyleBoxFlat and (dex_box as StyleBoxFlat).bg_color.b < 0.7:
+		return "hatch-dex is styled as primary"
+	var mark := main.find_child("TitleMark", true, false)
+	if mark == null:
+		return "title mark missing"
+	var trio := main.find_child("TitleTrio", true, false) as TextureRect
+	var word := main.find_child("TitleWordmark", true, false) as TextureRect
+	var lock := main.find_child("TitleLock", true, false) as TextureRect
+	if lock == null:
+		if trio == null or word == null:
+			return "title trio/wordmark hook missing"
+		if trio.get_parent() != word.get_parent() or trio.get_index() > word.get_index():
+			return "trio hook is not above the wordmark"
+		if word.texture == null:
+			var placeholder := main.find_child("TitlePlaceholder", true, false)
+			if placeholder == null or "HATCHLINE" not in str(placeholder.text):
+				return "wordmark-only placeholder missing"
+	for hook in [trio, word, lock]:
+		if hook == null or hook.texture == null:
+			continue
+		if "wordmark-hatchline-icon" in str(hook.texture.resource_path):
+			return "title locked to the side-icon wordmark"
+	var menu_under := main.find_child("MenuWash", true, false)
+	if menu_under == null or int(menu_under.z_index) >= 0:
+		return "menu underlay should sit behind the page"
+	var menu_tex := menu_under.find_child("WashUnderlay", true, false)
+	if menu_tex == null or not (menu_tex is TextureRect):
+		return "menu underlay texture missing"
+	if "wash-underlay-menu" not in str((menu_tex as TextureRect).texture.resource_path):
+		return "menu underlay is not the menu sheet"
+	var park := main.find_child("ReservePark", true, false) as BaseButton
+	var trail := main.find_child("SeasonTrail", true, false) as BaseButton
+	if park == null or trail == null or not park.disabled or not trail.disabled:
+		return "title park/trail tease missing"
+	if park.custom_minimum_size.y >= play.custom_minimum_size.y:
+		return "park tease competes with play"
+	if park.modulate.a > 0.85:
+		return "park tease is not greyed"
+	return ""
+
+
+func _starter_pick_err(main: Node) -> String:
+	if main.find_child("StarterPick", true, false) == null:
+		return "starter pick missing"
+	if main.find_child("PlayButton", true, false) != null:
+		return "play is still on the starter pick"
+	if main.find_child("TitleMenu", true, false) != null:
+		return "starter pick is still the title"
+	var menu_wash := main.find_child("StarterMeadow", true, false)
+	if menu_wash == null or int(menu_wash.z_index) >= 0:
+		return "menu wash should sit behind the starters"
+	var menu_under := main.find_child("MenuWash", true, false)
+	if menu_under == null or int(menu_under.z_index) >= 0:
+		return "menu underlay should sit behind the pick"
+	for starter_id in ["sproutling", "sparkpup", "cottonwisp"]:
+		if main.find_child("Starter_%s" % starter_id, true, false) == null:
+			return "missing starter " + starter_id
+	if main.find_child("Starter_budmite", true, false) != null:
+		return "budmite still on the starter row"
+	if main.find_child("BackButton", true, false) == null:
+		return "starter pick back missing"
+	return ""
 
 
 func _text_has(node: Node, needle: String) -> bool:
