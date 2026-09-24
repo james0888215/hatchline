@@ -1,5 +1,7 @@
 # starters-v1.3-anemononima
 
+**Archive.** Live idle is `starters-v1.3.1-blink` (closed hold on 06+07). This folder keeps the v1.3 idle, including the one-tick blink on frame 07. Merge and static frames in `art/starters/` are still these files.
+
 Production drop from **Anêmonônima Blob/Slime** (CC0) — pack-native frames with pastel regrade + Hatchline Art marks.
 
 **Not** the archived flat-capsule redraw (`starters-v1.2-face`). Keep pack thick outline + two-dot face; marks on TOP; cream-meadow pastel bodies.

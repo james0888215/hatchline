@@ -1,6 +1,8 @@
-# starters-v1.3-anemononima
+# starters — live playback
 
-Production drop from **Anêmonônima Blob/Slime** (CC0) — pack-native frames with pastel regrade + Hatchline Art marks.
+Idle frames are **starters-v1.3.1-blink**. Static tokens and merge frames stay **starters-v1.3-anemononima**. The v1.3 idle (one-tick blink on 07) is archived at `assets/drops/starters-v1.3-anemononima/`.
+
+Production art from **Anêmonônima Blob/Slime** (CC0) — pack-native frames with pastel regrade + Hatchline Art marks.
 
 **Not** the archived flat-capsule redraw (`starters-v1.2-face`). Keep pack thick outline + two-dot face; marks on TOP; cream-meadow pastel bodies.
 
@@ -18,8 +20,8 @@ Pivot: **bottom-center** on every frame (consistent padding + soft contact shado
 
 | Anim | Frames | Pack cols (shared clock) | FPS | Notes |
 |------|--------|--------------------------|-----|-------|
-| **Idle** | **8** (`00–07`) | `[0, 1, 0, 3, 0, 6, 0, 7]` → ['neutral', 'stretch', 'neutral_hold', 'soft_squash', 'neutral_hold2', 'look_l', 'neutral_hold3', 'blink'] | **4–5** | holds on neutrals; blink on 07 |
-| **Merge pop** | **6** (`00–05`) | `[3, 1, 0, 1, 0, 0]` → ['squash', 'stretch', 'settle', 'micro_bounce', 'rest', 'rest_hold'] | **8–10** one-shot | soft pack extremes |
+| **Idle** | **8** (`00–07`) | `[0, 1, 0, 3, 0, half, closed, closed]` — open, micro, open, squash, open, half-lid, CLOSED, CLOSED | **4–5** | **06 and 07 are identical**; half-lid on **05**; thick charcoal lids |
+| **Merge pop** | **6** (`00–05`) | `[3, 1, 0, 1, 0, 0]` → ['squash', 'stretch', 'settle', 'micro_bounce', 'rest', 'rest_hold'] | **8–10** one-shot | unchanged from v1.3 |
 
 Shared idle clock across Sproutling / Sparkpup / Cottonwisp.
 

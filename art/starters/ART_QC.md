@@ -1,5 +1,7 @@
 # Art QC — starters-v1.3-anemononima
 
+Live **idle** playback is `starters-v1.3.1-blink` (closed hold on identical frames 06 and 07, half-lid on 05). This record still covers the v1.3 body, marks, and merge.
+
 **Verdict:** **PASS** (2026-09-24) — Hatch Art  
 **Review soft PASS:** 2026-09-24 (Hatch Review). **Proto greenlit** to wire.
 
