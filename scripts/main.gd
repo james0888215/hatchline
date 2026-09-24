@@ -16,6 +16,12 @@ const HIT := Color("c4453a")
 const HEAL := Color("2a8a4a")
 const BEAT_HOLD := 0.48
 const BEAT_FADE := 0.2
+const LUNGE_PX := 22.0
+const LUNGE_OUT := 0.11
+const LUNGE_BACK := 0.12
+const SPIT_TIME := 0.18
+const POP_IN := 0.07
+const POP_OUT := 0.10
 
 var host: Control
 var tick: Timer
@@ -43,6 +49,7 @@ var round_label: Label
 var speed_button: Button
 var punch_box: Panel
 var punch_label: Label
+var strike_layer: Control
 
 
 func _ready() -> void:
@@ -240,6 +247,9 @@ func _clear_host() -> void:
 	speed_button = null
 	punch_box = null
 	punch_label = null
+	if strike_layer != null and is_instance_valid(strike_layer):
+		strike_layer.free()
+	strike_layer = null
 
 
 func _clear_flash() -> void:
@@ -465,6 +475,12 @@ func _build_combat(page: VBoxContainer) -> void:
 	mid.add_child(punch_box)
 	body.add_child(_combat_frame("ENEMY CRITTERS", enemy_stage.stage, PackedStringArray(["Front", "Mid", "Back"])))
 	page.add_child(_log_bar())
+	strike_layer = Control.new()
+	strike_layer.name = "StrikeLayer"
+	strike_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	strike_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strike_layer.z_index = 40
+	add_child(strike_layer)
 	_sync_combat()
 
 
@@ -1446,6 +1462,7 @@ func _spawn_floats(layer: Control, grid: GridContainer, cells: Array, pending: A
 		shown = _loud_floats(pending)
 		life = 0.30
 	var stacks := {}
+	var pace := 0.72 if Game.speed >= 2 else 1.0
 	for entry in shown:
 		var uid := int(entry.uid)
 		var index := -1
@@ -1459,7 +1476,8 @@ func _spawn_floats(layer: Control, grid: GridContainer, cells: Array, pending: A
 		var n := int(stacks.get(uid, 0))
 		stacks[uid] = n + 1
 		var color := HIT if str(entry.kind) == "hit" else HEAL
-		call_deferred("_place_float", layer, grid.get_child(index), str(entry.text), color, n, 0, life)
+		var delay := _impact_delay(str(entry.get("via", "")), pace)
+		call_deferred("_place_float", layer, grid.get_child(index), str(entry.text), color, n, 0, life, delay)
 
 
 func _loud_floats(pending: Array) -> Array:
@@ -1518,11 +1536,11 @@ func _hp_bar(hp: int, mx: int) -> ProgressBar:
 	return bar
 
 
-func _place_float(layer: Control, cell: Control, text: String, color: Color, slot_i: int, tries: int, duration: float = 0.62) -> void:
+func _place_float(layer: Control, cell: Control, text: String, color: Color, slot_i: int, tries: int, duration: float = 0.62, delay: float = 0.0) -> void:
 	if not is_instance_valid(layer) or not is_instance_valid(cell):
 		return
 	if cell.size.x < 2.0 and tries < 6:
-		call_deferred("_place_float", layer, cell, text, color, slot_i, tries + 1, duration)
+		call_deferred("_place_float", layer, cell, text, color, slot_i, tries + 1, duration, delay)
 		return
 	var wrap := Control.new()
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1538,6 +1556,10 @@ func _place_float(layer: Control, cell: Control, text: String, color: Color, slo
 	wrap.position = origin
 	var rise := 28.0 if duration < 0.5 else 40.0
 	var tw := wrap.create_tween()
+	if delay > 0.0:
+		wrap.modulate.a = 0.0
+		tw.tween_interval(delay)
+		tw.tween_property(wrap, "modulate:a", 1.0, 0.02)
 	tw.tween_property(wrap, "position:y", origin.y - rise, duration)
 	tw.parallel().tween_property(wrap, "modulate:a", 0.0, duration * 0.75).set_delay(duration * 0.28)
 	tw.finished.connect(wrap.queue_free)
@@ -1670,15 +1692,21 @@ func _juice_wrap(token: Control) -> Control:
 	juice.pivot_offset = sz * 0.5
 	juice.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	juice.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var motion := Control.new()
+	motion.name = "Motion"
+	motion.custom_minimum_size = sz
+	motion.size = sz
+	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	token.position = Vector2.ZERO
-	juice.add_child(token)
+	motion.add_child(token)
 	var flash := ColorRect.new()
 	flash.name = "Flash"
-	flash.color = Color("ff5c4a")
+	flash.color = Color("f6d56b")
 	flash.modulate.a = 0.0
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	juice.add_child(flash)
+	motion.add_child(flash)
+	juice.add_child(motion)
 	juice.resized.connect(func() -> void:
 		juice.pivot_offset = juice.size * 0.5
 	)
@@ -1691,7 +1719,7 @@ func _play_cues(cues: Array) -> void:
 		var uid := int(entry.uid)
 		if not by_uid.has(uid):
 			by_uid[uid] = []
-		by_uid[uid].append(str(entry.kind))
+		by_uid[uid].append(entry)
 	var k := 0.72 if Game.speed >= 2 else 1.0
 	for uid in by_uid.keys():
 		var node := _find_juice(int(uid))
@@ -1719,41 +1747,50 @@ func _juice_busy(node: Control) -> bool:
 	return tw is Tween and (tw as Tween).is_valid() and (tw as Tween).is_running()
 
 
-func _tween_juice(node: Control, kinds: Array, k: float) -> void:
+func _tween_juice(node: Control, entries: Array, k: float) -> void:
 	var has_kill := false
-	for kind in kinds:
-		if str(kind) == "kill":
+	var via := ""
+	for entry in entries:
+		if str(entry.kind) == "kill":
 			has_kill = true
+		if str(entry.get("via", "")) != "":
+			via = str(entry.via)
 	if node.has_meta("juice_tw"):
 		var old = node.get_meta("juice_tw")
 		if old is Tween and (old as Tween).is_valid():
 			(old as Tween).kill()
 	node.scale = Vector2.ONE
 	node.modulate = Color.WHITE
+	var motion := node.find_child("Motion", true, false)
+	if motion is Control:
+		(motion as Control).position = Vector2.ZERO
 	var flash: Node = node.find_child("Flash", true, false)
 	if flash is CanvasItem:
 		(flash as CanvasItem).modulate.a = 0.0
 	var tw := node.create_tween()
 	node.set_meta("juice_tw", tw)
-	for kind in kinds:
-		var step := str(kind)
+	var waited := false
+	var delay := _impact_delay(via, k)
+	for entry in entries:
+		var step := str(entry.kind)
 		if step == "windup":
-			tw.tween_property(node, "scale", Vector2(1.32, 0.60), 0.11 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tw.tween_interval(0.08 * k)
-			tw.tween_property(node, "scale", Vector2.ONE, 0.12 * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+			if str(entry.get("role", "")) == "ranged":
+				_spit(node, int(entry.get("target", -1)), k)
+			else:
+				_lunge(node, int(entry.get("target", -1)), tw, k)
 		elif step == "hit":
 			if has_kill:
 				continue
-			tw.tween_property(node, "scale", Vector2(1.40, 0.52), 0.08 * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.42, 0.36), 0.08 * k)
-			if flash is CanvasItem:
-				tw.parallel().tween_property(flash, "modulate:a", 0.62, 0.08 * k)
-			tw.tween_interval(0.08 * k)
-			tw.tween_property(node, "scale", Vector2.ONE, 0.16 * k)
-			tw.parallel().tween_property(node, "modulate", Color.WHITE, 0.16 * k)
-			if flash is CanvasItem:
-				tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.16 * k)
+			if delay > 0.0 and not waited:
+				tw.tween_interval(delay)
+				waited = true
+			_pop_hit(node, flash, tw, k)
 		elif step == "kill":
+			if delay > 0.0 and not waited:
+				tw.tween_interval(delay)
+				waited = true
+			if flash is ColorRect:
+				(flash as ColorRect).color = Color("ff5c4a")
 			tw.tween_property(node, "scale", Vector2(1.20, 0.66), 0.06 * k)
 			tw.parallel().tween_property(node, "modulate", Color(1.0, 0.40, 0.34), 0.06 * k)
 			if flash is CanvasItem:
@@ -1764,6 +1801,93 @@ func _tween_juice(node: Control, kinds: Array, k: float) -> void:
 			tw.parallel().tween_property(node, "modulate", Color(0.55, 0.55, 0.58, 0.3), 0.20 * k)
 			if flash is CanvasItem:
 				tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.20 * k)
+
+
+func _impact_delay(via: String, k: float) -> float:
+	if via == "ranged":
+		return SPIT_TIME * k
+	if via == "melee":
+		return LUNGE_OUT * k
+	return 0.0
+
+
+func _pop_hit(node: Control, flash: Node, tw: Tween, k: float) -> void:
+	if flash is ColorRect:
+		(flash as ColorRect).color = Color("f6d56b")
+	tw.tween_property(node, "scale", Vector2(1.14, 1.14), POP_IN * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(node, "modulate", Color(1.0, 0.94, 0.78), POP_IN * k)
+	if flash is CanvasItem:
+		tw.parallel().tween_property(flash, "modulate:a", 0.34, POP_IN * k)
+	tw.tween_property(node, "scale", Vector2.ONE, POP_OUT * k)
+	tw.parallel().tween_property(node, "modulate", Color.WHITE, POP_OUT * k)
+	if flash is CanvasItem:
+		tw.parallel().tween_property(flash, "modulate:a", 0.0, POP_OUT * k)
+
+
+func _lunge(node: Control, target_uid: int, tw: Tween, k: float) -> void:
+	var motion := node.find_child("Motion", true, false) as Control
+	if motion == null:
+		return
+	var dest := _toward(node, target_uid, LUNGE_PX)
+	motion.position = Vector2.ZERO
+	tw.tween_property(motion, "position", dest, LUNGE_OUT * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(motion, "position", Vector2.ZERO, LUNGE_BACK * k).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+
+func _spit(from_node: Control, target_uid: int, k: float) -> void:
+	if strike_layer == null or not is_instance_valid(strike_layer):
+		return
+	var target := _find_juice(target_uid)
+	if target == null:
+		return
+	var seed := Panel.new()
+	seed.name = "Spit"
+	seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	seed.custom_minimum_size = Vector2(14, 14)
+	seed.size = Vector2(14, 14)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("d7e7a4")
+	style.border_color = INK
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(7)
+	style.set_content_margin_all(0)
+	seed.add_theme_stylebox_override("panel", style)
+	var spark := ColorRect.new()
+	spark.color = Color("f6d56b")
+	spark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spark.custom_minimum_size = Vector2(5, 5)
+	spark.size = Vector2(5, 5)
+	spark.position = Vector2(9, -1)
+	seed.add_child(spark)
+	strike_layer.add_child(seed)
+	var start := _layer_point(from_node)
+	var end := _layer_point(target)
+	seed.position = start - seed.size * 0.5
+	var tw := seed.create_tween()
+	tw.tween_property(seed, "position", end - seed.size * 0.5, SPIT_TIME * k).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(seed.queue_free)
+
+
+func _toward(from_node: Control, target_uid: int, dist: float) -> Vector2:
+	var fallback := Vector2(dist, 0)
+	if enemy_grid != null and enemy_grid.is_ancestor_of(from_node):
+		fallback = Vector2(-dist, 0)
+	var target := _find_juice(target_uid)
+	if target == null or from_node.size.x < 2.0 or target.size.x < 2.0:
+		return fallback
+	var from_c := from_node.global_position + from_node.size * 0.5
+	var to_c := target.global_position + target.size * 0.5
+	var delta := to_c - from_c
+	if delta.length() < 4.0:
+		return fallback
+	return from_node.get_global_transform().affine_inverse().basis_xform(delta).normalized() * dist
+
+
+func _layer_point(node: Control) -> Vector2:
+	var center := node.global_position + node.size * 0.5
+	if strike_layer == null:
+		return center
+	return strike_layer.get_global_transform().affine_inverse() * center
 
 
 func _pop_wrap(token: Control) -> Control:
