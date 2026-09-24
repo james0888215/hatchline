@@ -1722,11 +1722,17 @@ func _title_stage_err(main: Node, flourish_name: String) -> String:
 	if int(plate.z_index) >= int(hills.z_index) or int(hills.z_index) >= 0:
 		return "flourish is not between the texture and the chrome"
 	if plate is TextureRect:
-		var plate_path := str((plate as TextureRect).texture.resource_path)
-		if "bg-title-texture-A" not in plate_path:
-			return "title texture is not the temporary paper"
-		if "texture-B" in plate_path:
-			return "muddy meadow texture is the default"
+		var plate_rect := plate as TextureRect
+		var plate_path := str(plate_rect.texture.resource_path)
+		var ui = load("res://scripts/main.gd")
+		if str(ui.TITLE_TEXTURE_CHOICE) != "B":
+			return "texture B is not first"
+		if "bg-title-texture-A" not in str(ui.TITLE_TEXTURE_A):
+			return "paper texture swap missing"
+		if "bg-title-texture-B" not in plate_path:
+			return "title is not showing meadow texture B"
+		if plate_rect.modulate.a > 0.4 or plate_rect.modulate.a < 0.3:
+			return "meadow texture is not eased off the buttons"
 	elif plate is ColorRect:
 		var paper: Color = (plate as ColorRect).color
 		if paper.r < 0.9 or paper.g < 0.9:

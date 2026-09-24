@@ -7,11 +7,12 @@ const MARK := preload("res://scripts/mark.gd")
 const MEADOW := preload("res://scripts/meadow_wash.gd")
 
 # Title chrome only. In-run wash stays meadow-wash-v2.
-# Logo hook is the trio wordmark. Art is overwriting those files in place.
-# Texture "A" is the temporary quiet paper. "B" is the meadow sheet Art is
-# regenerating — do not default to the muddy file.
+# Logo is the trio wordmark. Texture B is first; A is the one-line swap.
+# B's button band peaks about 17% off cream, so it is blended down until
+# that band sits on the 8% line. Flourish mid-band alpha is already under 5%.
 const TITLE_ART_DIR := "res://art/style-lock/title-menu-v1"
-const TITLE_TEXTURE_CHOICE := "A"
+const TITLE_TEXTURE_CHOICE := "B"
+const TITLE_TEXTURE_B_MODULATE := 0.36
 const TITLE_LOGO_PX := 512
 const TITLE_TEXTURE_A := TITLE_ART_DIR + "/bg-title-texture-A-paper-1280x800.png"
 const TITLE_TEXTURE_B := TITLE_ART_DIR + "/bg-title-texture-B-meadow-1280x800.png"
@@ -414,12 +415,12 @@ func _add_title_stage(for_pick: bool) -> void:
 	var plate := _title_plate(_title_tex(_title_texture_path()))
 	plate.name = "TitleTexture"
 	plate.z_index = -6
+	if TITLE_TEXTURE_CHOICE == "B":
+		plate.modulate = Color(1, 1, 1, TITLE_TEXTURE_B_MODULATE)
 	host.add_child(plate)
 	var hills := _title_plate(_title_tex(FLOURISH_PICK if for_pick else FLOURISH_TITLE))
 	hills.name = "TitleFlourish"
 	hills.z_index = -4
-	# Hill alpha is baked (peak ≤ 0.22). A second multiply, or a ColorRect
-	# on top of the paper, would either kill the hills or muddy the cream.
 	hills.modulate = Color(1, 1, 1, 1)
 	host.add_child(hills)
 
