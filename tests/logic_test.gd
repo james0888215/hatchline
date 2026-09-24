@@ -492,18 +492,18 @@ func _test_combat_floats() -> String:
 	if tokens.species_mark("leaf", "bud", 2) != "mossguard" or tokens.species_mark("puff", "cotton", 3) != "stormpillow":
 		return "line did not continue past T1"
 	var cap: TextureRect = tokens.make("leaf", 1, 64.0, false, "sproutling", "melee")
-	if cap.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
-		return "fight token filter"
-	if cap.texture == null or not cap.texture.get_image().has_mipmaps():
-		return "fight token mipmaps"
+	if cap.texture_filter != CanvasItem.TEXTURE_FILTER_NEAREST:
+		return "starter token filter"
+	if cap.texture == null or cap.texture.get_image().has_mipmaps():
+		return "starter token mipmaps"
 	if cap.custom_minimum_size != cap.custom_minimum_size.round():
 		return "fight token is off a pixel"
 	var face_script = load("res://scripts/starter_face.gd")
 	if absf(float(face_script.IDLE_FPS) - 5.0) > 0.01:
 		return "idle is not 5 fps"
 	var holds = face_script.IDLE_HOLD_STEPS
-	if holds.size() != 6:
-		return "idle hold is not the 6-frame sheet"
+	if holds.size() != 8:
+		return "idle hold is not the 8-frame sheet"
 	var span := 0.0
 	for step in holds:
 		span += float(step)
@@ -515,7 +515,7 @@ func _test_combat_floats() -> String:
 		return "merge fps out of band"
 	if float(face_script.MERGE_SETTLE) < 0.05 or float(face_script.MERGE_SETTLE) > 0.08:
 		return "merge settle out of band"
-	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 6 or int(cap.get("merge_count")) != 6:
+	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 8 or int(cap.get("merge_count")) != 6:
 		return "sproutling board sheet"
 	if absf(cap.pivot_offset.x - cap.custom_minimum_size.x * 0.5) > 1.0 or absf(cap.pivot_offset.y - cap.custom_minimum_size.y) > 1.0:
 		return "starter pivot is not bottom-center"
@@ -1763,7 +1763,7 @@ func _title_menu_err(main: Node) -> String:
 			return "title nav is not stacked vertically"
 		if absf(play_y / view_h - band) > 0.04:
 			return "title pills are not at the raised lock"
-		var logo := main.find_child("TitleWordmark", true, false) as Control
+		var logo := main.find_child("TitleCluster", true, false) as Control
 		if logo != null and logo.size.y > 1.0:
 			var word_top := logo.get_global_rect().position.y / view_h
 			if word_top < 0.06 or word_top > 0.14:
@@ -1786,12 +1786,29 @@ func _title_menu_err(main: Node) -> String:
 	if word == null or word.texture == null:
 		return "trio wordmark missing"
 	var word_path := str(word.texture.resource_path)
-	if "wordmark-hatchline-trio" not in word_path:
-		return "title logo is not the trio wordmark"
-	if "wordmark-hatchline-icon" in word_path or "wordmark-hatchline-only" in word_path:
-		return "archive wordmark is the default"
+	if "wordmark-hatchline-only" not in word_path:
+		return "title type is not the static wordmark"
+	if "wordmark-hatchline-trio" in word_path or "wordmark-hatchline-icon" in word_path:
+		return "baked trio wordmark is still the default"
 	if word.scale != Vector2.ONE:
 		return "wordmark is moving"
+	var trio := main.find_child("TitleTrio", true, false)
+	if trio == null:
+		return "title trio missing"
+	var faces := trio.find_children("*", "TextureRect", true, false)
+	var live := 0
+	for face in faces:
+		if face.get_script() == null:
+			continue
+		if str(face.get_script().resource_path) != "res://scripts/starter_face.gd":
+			continue
+		live += 1
+		if int(face.get("sheet_px")) != 140 or int(face.get("idle_count")) != 8:
+			return "title trio is not the 140-class idle"
+		if (face as Control).scale != Vector2.ONE:
+			return "title trio scale is tweening"
+	if live != 3:
+		return "title trio is not the three starters"
 	var version := main.find_child("TitleVersion", true, false) as Label
 	if version == null or version.text != "v0.playtest-1":
 		return "version crumb missing"
@@ -1858,6 +1875,8 @@ func _starter_pick_err(main: Node) -> String:
 				return "starter portrait is not the idle sheet"
 			if (face as Control).scale != Vector2.ONE:
 				return "starter portrait scale is tweening"
+			if int(face.get("sheet_px")) != 140 or int(face.get("idle_count")) != 8:
+				return "starter portrait is not the 140-class idle"
 		var spark := main.find_child("Starter_sparkpup", true, false) as BaseButton
 		var sprout := main.find_child("Starter_sproutling", true, false) as BaseButton
 		if absf(spark.scale.x - float(ui.PICK_SELECTED_SCALE)) > 0.02:
