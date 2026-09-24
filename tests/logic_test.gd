@@ -54,6 +54,14 @@ func _main() -> void:
 			break
 		print("OK   ", name)
 	if failures.is_empty():
+		print("RUN starter_motion")
+		var motion_err: String = await _test_starter_motion()
+		if motion_err != "":
+			print("FAIL starter_motion: ", motion_err)
+			failures.append("starter_motion")
+		else:
+			print("OK   starter_motion")
+	if failures.is_empty():
 		print("RUN ui_smoke")
 		var ui_err: String = await _test_ui()
 		if ui_err != "":
@@ -61,6 +69,14 @@ func _main() -> void:
 			failures.append("ui_smoke")
 		else:
 			print("OK   ui_smoke")
+	if failures.is_empty():
+		print("RUN starter_merge")
+		var merge_err: String = await _test_starter_merge()
+		if merge_err != "":
+			print("FAIL starter_merge: ", merge_err)
+			failures.append("starter_merge")
+		else:
+			print("OK   starter_merge")
 	if failures.is_empty():
 		print("RUN quiet_prep")
 		var quiet_err: String = await _test_quiet_prep()
@@ -206,6 +222,8 @@ func _test_strict_merge() -> String:
 		return "spike too small"
 	if str(g.run.merge_flash.get("to", "")) != "Thornbud":
 		return "no flourish"
+	if str(g.run.merge_flash.get("from_id", "")) != "sproutling":
+		return "merge flash lost the starter line"
 	g.blank_run()
 	_put("board", 4, "sproutling")
 	_put("bench", 0, "sproutling")
@@ -480,6 +498,24 @@ func _test_combat_floats() -> String:
 		return "fight token mipmaps"
 	if cap.custom_minimum_size != cap.custom_minimum_size.round():
 		return "fight token is off a pixel"
+	var face_script = load("res://scripts/starter_face.gd")
+	if float(face_script.IDLE_FPS) < 6.0 or float(face_script.IDLE_FPS) > 8.0:
+		return "idle fps out of band"
+	if float(face_script.MERGE_FPS) < 10.0 or float(face_script.MERGE_FPS) > 12.0:
+		return "merge fps out of band"
+	if int(cap.get("sheet_px")) != 64 or int(cap.get("idle_count")) != 4 or int(cap.get("merge_count")) != 5:
+		return "sproutling board sheet"
+	var listed = tokens.make("ember", 1, 40.0, false, "sparkpup", "ranged")
+	if int(listed.get("sheet_px")) != 32:
+		return "sparkpup list should use 32"
+	var cotton = tokens.make("puff", 1, 46.0, false, "cottonwisp", "ranged")
+	if int(cotton.get("sheet_px")) != 64:
+		return "cottonwisp board should use 64"
+	var bud = tokens.make("leaf", 1, 64.0, false, "budmite", "ranged")
+	if bud.get_script() != null:
+		return "budmite left the capsule"
+	if tokens.clarity_texture("sproutling") == null:
+		return "old sproutling crop missing"
 	return ""
 
 
@@ -1069,6 +1105,103 @@ func _test_unlock() -> String:
 	return ""
 
 
+func _test_starter_motion() -> String:
+	var tokens = load("res://scripts/token.gd")
+	var board = tokens.make("leaf", 1, 64.0, false, "sproutling", "melee")
+	root.add_child(board)
+	var still: Texture2D = board.texture
+	await create_timer(0.25).timeout
+	if str(board.get("mode")) != "idle" or board.texture == still:
+		board.queue_free()
+		return "idle did not leave the static frame"
+	var holder := Control.new()
+	root.add_child(holder)
+	var held = tokens.make("ember", 1, 64.0, false, "sparkpup", "ranged")
+	holder.add_child(held)
+	var tw := holder.create_tween()
+	tw.tween_interval(1.0)
+	holder.set_meta("juice_tw", tw)
+	var held_tex: Texture2D = held.texture
+	var held_frame := int(held.get("frame_i"))
+	await create_timer(0.25).timeout
+	if int(held.get("frame_i")) != held_frame or held.texture != held_tex:
+		tw.kill()
+		board.queue_free()
+		holder.queue_free()
+		return "idle advanced during a tween"
+	tw.kill()
+	board.call("play_merge")
+	await create_timer(0.7).timeout
+	if str(board.get("mode")) != "idle":
+		board.queue_free()
+		holder.queue_free()
+		return "merge did not settle to idle"
+	var evolved = tokens.make("puff", 1, 64.0, false, "cottonwisp", "ranged")
+	root.add_child(evolved)
+	var cap_tex: Texture2D = tokens.clarity_texture("cloudbud")
+	var sz: Vector2 = evolved.custom_minimum_size
+	evolved.call("arm_settle", tokens.sheet_frame(cap_tex, int(sz.x), int(sz.y)))
+	evolved.call("play_merge")
+	await create_timer(0.7).timeout
+	if str(evolved.get("mode")) != "still":
+		board.queue_free()
+		holder.queue_free()
+		evolved.queue_free()
+		return "evolved merge did not settle to the capsule"
+	board.queue_free()
+	holder.queue_free()
+	evolved.queue_free()
+	return ""
+
+
+func _test_starter_merge() -> String:
+	g.blank_run()
+	_put("board", 4, "sproutling")
+	_put("bench", 0, "sproutling")
+	_put("bench", 1, "sproutling")
+	g._after_units_changed()
+	if str(g.run.board[4].def_id) != "thornbud":
+		return "triple did not land on the board"
+	if str(g.run.merge_flash.get("from_id", "")) != "sproutling":
+		return "flash is not the sproutling line"
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var center: Node = main.find_child("Board4", true, false)
+	if center == null:
+		main.queue_free()
+		return "merge slot missing"
+	var face: Node = center.find_child("Capsule", true, false)
+	if face == null or not face.has_method("play_merge"):
+		main.queue_free()
+		return "merge did not use the starter sheet"
+	if str(face.get("mode")) != "merge":
+		main.queue_free()
+		return "merge one-shot was not playing"
+	if int(face.get("sheet_px")) != 64:
+		main.queue_free()
+		return "merge used the 32 sheet on the board"
+	var badge: Node = center.find_child("RoleBadge", true, false)
+	if badge == null or str(badge.get("kind")) != "melee":
+		main.queue_free()
+		return "merge hid the role badge"
+	var board_wash: Node = main.find_child("BoardMeadow", true, false)
+	if board_wash == null or int(board_wash.z_index) >= 0:
+		main.queue_free()
+		return "merge put the board wash in front"
+	var page_wash: Node = main.find_child("MeadowWash", true, false)
+	if page_wash == null or int(page_wash.z_index) >= 0:
+		main.queue_free()
+		return "merge put the page wash in front"
+	await create_timer(0.7).timeout
+	if not is_instance_valid(face) or str(face.get("mode")) != "still":
+		main.queue_free()
+		return "merge did not settle onto the evolved capsule"
+	main.queue_free()
+	return ""
+
+
 func _test_ui() -> String:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
@@ -1174,6 +1307,13 @@ func _test_ui() -> String:
 	var badge: Node = center.find_child("RoleBadge", true, false)
 	if badge == null or str(badge.get("kind")) != "melee":
 		return "starter role badge"
+	var board_face: Node = center.find_child("Capsule", true, false)
+	if board_face == null or board_face.get_script() == null:
+		return "starter board is still a plain capsule"
+	if str(board_face.get_script().resource_path) != "res://scripts/starter_face.gd":
+		return "starter board face script"
+	if int(board_face.get("sheet_px")) != 64:
+		return "starter board is not the 64 sheet"
 	var heads: Node = main.find_child("RankHeads", true, false)
 	if heads == null or not _text_has(heads, "Front") or not _text_has(heads, "Back"):
 		return "rank headers"
