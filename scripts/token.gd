@@ -1,8 +1,7 @@
 extends RefCounted
 
 # Flat capsule tokens cut from the locked silhouette sheets.
-# One texture per family + tier. Meadow beasts use the plain rose pill.
-
+# One texture per family + tier. Named clarity crops override a shared face.
 
 static func texture(family: String, tier: int) -> Texture2D:
 	var fam := family
@@ -17,13 +16,77 @@ static func texture(family: String, tier: int) -> Texture2D:
 	return load(path) as Texture2D
 
 
-static func make(family: String, tier: int, max_h: float, boss: bool = false) -> TextureRect:
+static func enemy_mark(def_id: String) -> String:
+	match def_id:
+		"mite":
+			return "meadow"
+		"mite_small":
+			return "tired"
+		"warden":
+			return "warden"
+		"bramble":
+			return "bramble"
+		"sprig":
+			return "sprig"
+		_:
+			return ""
+
+
+static func species_mark(family: String, line: String, tier: int) -> String:
+	if family == "puff" and tier == 2:
+		match line:
+			"cotton":
+				return "cloudbud"
+			"fluff":
+				return "cumulon"
+			"nimbus":
+				return "driftkin"
+	return ""
+
+
+static func clarity_texture(mark: String) -> Texture2D:
+	var file := ""
+	match mark:
+		"meadow":
+			file = "mite_meadow"
+		"tired":
+			file = "mite_tired"
+		"cloudbud":
+			file = "puff_cloudbud"
+		"cumulon":
+			file = "puff_cumulon"
+		"warden":
+			file = "beast_warden"
+		"bramble":
+			file = "beast_bramble"
+		"sprig":
+			file = "beast_sprig"
+		"driftkin":
+			file = "puff_driftkin"
+		_:
+			return null
+	var path := "res://art/tokens/%s.png" % file
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+
+static func unit_mark(unit) -> String:
+	var from_def := enemy_mark(str(unit.get("def_id", "")))
+	if from_def != "":
+		return from_def
+	return species_mark(str(unit.get("family", "")), str(unit.get("line", "")), int(unit.get("tier", 1)))
+
+
+static func make(family: String, tier: int, max_h: float, boss: bool = false, mark: String = "") -> Control:
 	var rect := TextureRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	var tex := texture(family, tier)
+	var tex := clarity_texture(mark)
+	if tex == null:
+		tex = texture(family, tier)
 	var aspect := 1.35
 	if tex != null:
 		rect.texture = tex
@@ -38,6 +101,11 @@ static func make(family: String, tier: int, max_h: float, boss: bool = false) ->
 		h = max_h * 0.74
 	elif tier == 2:
 		h = max_h * 0.88
+	# Sheet 07: the crown reads taller, and the sprig's size is the telegraph.
+	if mark == "warden":
+		h *= 1.16
+	elif mark == "sprig":
+		h *= 0.68
 	var w := h * aspect
 	var max_w := max_h * 1.9
 	if w > max_w:

@@ -7,12 +7,13 @@ var slot_index: int = -1
 var unit_uid: int = -1
 var preview_family: String = "leaf"
 var preview_tier: int = 1
+var preview_mark: String = ""
 
 
 func _get_drag_data(_at: Vector2) -> Variant:
 	if unit_uid < 0:
 		return null
-	var preview := TOKENS.make(preview_family, preview_tier, 72.0)
+	var preview := TOKENS.make(preview_family, preview_tier, 72.0, false, preview_mark)
 	set_drag_preview(preview)
 	return {"uid": unit_uid}
 

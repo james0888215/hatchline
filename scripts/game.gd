@@ -902,6 +902,7 @@ func _default_profile() -> Dictionary:
 		"discovered": [],
 		"unlocked_lines": lines,
 		"new_lines": [],
+		"seen_sell": false,
 	}
 
 
@@ -925,10 +926,25 @@ func _load_profile() -> void:
 	profile.new_lines = []
 	for id in parsed.get("new_lines", []):
 		profile.new_lines.append(str(id))
+	profile.seen_sell = bool(parsed.get("seen_sell", false))
 	var discovered: Array = []
 	for id in profile.discovered:
 		discovered.append(str(id))
 	profile.discovered = discovered
+
+
+func note_sell_once() -> void:
+	if bool(profile.get("seen_sell", false)):
+		return
+	profile.seen_sell = true
+	_save_profile()
+	if run == null:
+		return
+	var hint := "Drag a critter onto Sell."
+	if str(run.toast) == "":
+		run.toast = hint
+	elif hint not in str(run.toast):
+		run.toast = str(run.toast) + "   ·   " + hint
 
 
 func _save_profile() -> void:
