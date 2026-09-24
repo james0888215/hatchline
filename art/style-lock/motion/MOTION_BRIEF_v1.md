@@ -83,8 +83,8 @@ Layer order: texture/sky → clouds → hills → grass → **trio wordmark** �
 
 ## 6) Next owners
 
-- **Assets:** re-export starters idle/merge under these %; keep colours/outline from style-lock; new drop `starters-v1.1-subtle/` or patch in place + note in README.
-- **Proto:** retarget FPS/holds; remove any extra scale tweens; title parallax per §3 when scenic layers exist.
+- **Assets:** starters-v1.1-subtle is the live set in `art/starters/` (idle `00–05`, merge `00–05`).
+- **Proto:** idle plays at 5 FPS and merge at 9 FPS, on one shared clock, with no scale tween on the frames. Title cloud/hill drift still waits on separate layers.
 - **Art:** re-pass QC sheets; Update this brief only if James asks louder/softer.
 
 *End MOTION_BRIEF_v1.*
