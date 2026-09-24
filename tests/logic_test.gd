@@ -55,6 +55,14 @@ func _main() -> void:
 		else:
 			print("OK   ui_smoke")
 	if failures.is_empty():
+		print("RUN quiet_prep")
+		var quiet_err: String = await _test_quiet_prep()
+		if quiet_err != "":
+			print("FAIL quiet_prep: ", quiet_err)
+			failures.append("quiet_prep")
+		else:
+			print("OK   quiet_prep")
+	if failures.is_empty():
 		print("ALL PASS")
 		quit(0)
 	else:
@@ -727,6 +735,141 @@ func _test_ui() -> String:
 	if _text_has(main, "Orthogonal buddies") or _text_has(main, "1 coin per") or _text_has(main, "Pairs sit"):
 		return "later shop still has a teach wall"
 	return ""
+
+
+func _test_quiet_prep() -> String:
+	g.debug_reset_profile()
+	var main = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	g.blank_run()
+	# Under the soft crowd line the full stat row stays, so early boards still read.
+	var early := ["cloudbud", "cloudbud", "driftkin", "thornbud"]
+	for i in early.size():
+		g.run.board[i] = g.make_unit(early[i])
+	g.enter_node("wild_1")
+	await process_frame
+	await process_frame
+	if g.board_count() != 4:
+		return "early count %d" % g.board_count()
+	if _board_stat_lines(main).is_empty():
+		return "under 5 should still show ATK ARM REG"
+	# 6 fill: name + HP, pair pip, and buddy chips. Stats only on the selected cell.
+	g.run.board[4] = g.make_unit("foxfire")
+	g.run.board[5] = g.make_unit("emberfox")
+	g.changed.emit()
+	await process_frame
+	await process_frame
+	if g.board_count() != 6:
+		return "crowded count %d" % g.board_count()
+	var clutter := _board_stat_lines(main)
+	if not clutter.is_empty():
+		return "5-7 board shows " + " | ".join(clutter)
+	if not _board_has_text(main, "2/3"):
+		return "pair pip hidden at 5-7"
+	if not _board_has_chip(main):
+		return "buddy chip hidden at 5-7"
+	if not _board_has_hp(main):
+		return "HP missing at 5-7"
+	if _quiet_count(main, true) != 0:
+		return "quiet detail visible with nothing selected"
+	var focus_uid := -1
+	for i in g.run.board.size():
+		var u = g.run.board[i]
+		if u != null and str(u.def_id) == "driftkin":
+			focus_uid = int(u.uid)
+	main.focus_uid = focus_uid
+	g.changed.emit()
+	await process_frame
+	await process_frame
+	if _quiet_count(main, true) != 1:
+		return "select should open one stat line (%d)" % _quiet_count(main, true)
+	var leaked := _board_stat_lines(main)
+	if leaked.size() != 1:
+		return "select leaked stats " + " | ".join(leaked)
+	var corner: Node = main.find_child("Board0", true, false)
+	if corner == null or "ATK" not in str(corner.tooltip_text):
+		return "tooltip dropped the stat line"
+	return ""
+
+
+func _board_slots(main: Node) -> Array:
+	var slots: Array = []
+	for i in 9:
+		var slot: Node = main.find_child("Board%d" % i, true, false)
+		if slot != null and int(slot.get("unit_uid")) >= 0:
+			slots.append(slot)
+	return slots
+
+
+func _visible_texts(node: Node, out: PackedStringArray) -> void:
+	if node is CanvasItem and not (node as CanvasItem).visible:
+		return
+	if node is Label:
+		out.append(str((node as Label).text))
+	for c in node.get_children():
+		_visible_texts(c, out)
+
+
+func _is_stat_line(text: String) -> bool:
+	if text.begins_with("+"):
+		return false
+	return "ATK" in text or "ARM" in text or "REG" in text
+
+
+func _board_stat_lines(main: Node) -> PackedStringArray:
+	var found := PackedStringArray()
+	for slot in _board_slots(main):
+		var s: Node = slot
+		var texts := PackedStringArray()
+		_visible_texts(s, texts)
+		for t in texts:
+			if _is_stat_line(t):
+				found.append(t)
+	return found
+
+
+func _board_has_text(main: Node, needle: String) -> bool:
+	for slot in _board_slots(main):
+		var s: Node = slot
+		var texts := PackedStringArray()
+		_visible_texts(s, texts)
+		for t in texts:
+			if needle in t:
+				return true
+	return false
+
+
+func _board_has_chip(main: Node) -> bool:
+	for slot in _board_slots(main):
+		var s: Node = slot
+		var texts := PackedStringArray()
+		_visible_texts(s, texts)
+		for t in texts:
+			if t.begins_with("+"):
+				return true
+	return false
+
+
+func _board_has_hp(main: Node) -> bool:
+	for slot in _board_slots(main):
+		var s: Node = slot
+		var texts := PackedStringArray()
+		_visible_texts(s, texts)
+		for t in texts:
+			if t.ends_with("HP") and not _is_stat_line(t):
+				return true
+	return false
+
+
+func _quiet_count(main: Node, want_visible: bool) -> int:
+	var n := 0
+	for slot in _board_slots(main):
+		var s: Node = slot
+		var detail: Node = s.find_child("QuietDetail", true, false)
+		if detail != null and detail.visible == want_visible:
+			n += 1
+	return n
 
 
 func _text_has(node: Node, needle: String) -> bool:
